@@ -1,0 +1,503 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { requireDm, requireSession } from "@/lib/auth";
+
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+function toError(err: unknown): ActionResult {
+  return { ok: false, error: err instanceof Error ? err.message : String(err) };
+}
+
+// ---------------------------------------------------------------- auth
+
+export async function signUp(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: displayName } },
+  });
+  if (error) return { ok: false, error: error.message };
+  // When email confirmation is required, no session comes back — send the
+  // user to login with a "check your inbox" notice instead of the app.
+  if (!data.session) {
+    redirect("/login?confirm=sent");
+  }
+  redirect("/");
+}
+
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  if (error) return { ok: false, error: error.message };
+  redirect("/");
+}
+
+export async function signOut(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
+
+// ------------------------------------------------------------ characters
+
+export async function createCharacter(input: {
+  name: string;
+  kind: "pc" | "enemy";
+  classId?: string | null;
+  maxHp?: number;
+}): Promise<ActionResult & { id?: string }> {
+  try {
+    const session = await requireSession();
+    const supabase = await createClient();
+
+    const insert = {
+      name: input.name.trim(),
+      kind: input.kind,
+      class_id: input.classId ?? null,
+      max_hp: input.maxHp ?? 10,
+      current_hp: input.maxHp ?? 10,
+      owner_id: session.user.id,
+    };
+
+    const { data, error } = await supabase
+      .from("characters")
+      .insert(insert)
+      .select("id")
+      .single();
+
+    if (error) throw new Error(error.message);
+    revalidatePath("/characters");
+    revalidatePath("/bestiary");
+    revalidatePath("/");
+    return { ok: true, id: data.id };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function updateCharacterFields(
+  id: string,
+  fields: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    await requireSession();
+    const supabase = await createClient();
+
+    // DM-owned fields must go through the validated RPC.
+    const dmFields = ["level", "xp", "kind", "owner_id"];
+    const hasDmFields = dmFields.some((k) => k in fields);
+    if (hasDmFields) {
+      const { error } = await supabase.rpc("dm_update_character", {
+        p_id: id,
+        p_updates: fields,
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    const playerFields = Object.fromEntries(
+      Object.entries(fields).filter(([k]) => !dmFields.includes(k)),
+    );
+    if (Object.keys(playerFields).length > 0) {
+      const { error } = await supabase
+        .from("characters")
+        .update(playerFields)
+        .eq("id", id);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath(`/characters/${id}`);
+    revalidatePath("/bestiary");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function deleteCharacter(id: string): Promise<ActionResult> {
+  try {
+    await requireSession();
+    const supabase = await createClient();
+    const { error } = await supabase.from("characters").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/characters");
+    revalidatePath("/bestiary");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function levelUpCharacter(id: string): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+
+    const { data: character, error: fetchErr } = await supabase
+      .from("characters")
+      .select("level")
+      .eq("id", id)
+      .single();
+    if (fetchErr) throw new Error(fetchErr.message);
+
+    const { error } = await supabase.rpc("dm_update_character", {
+      p_id: id,
+      p_updates: { level: character.level + 1 },
+    });
+    if (error) throw new Error(error.message);
+
+    revalidatePath(`/characters/${id}`);
+    revalidatePath("/bestiary");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+// ----------------------------------------------------------- skill trees
+
+export async function spendSkillPoints(
+  characterId: string,
+  skillId: string,
+  ranks: number,
+): Promise<ActionResult> {
+  try {
+    await requireSession();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("spend_skill_points", {
+      p_character: characterId,
+      p_skill: skillId,
+      p_ranks: ranks,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/characters/${characterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function refundSkillPoints(
+  characterId: string,
+  skillId: string,
+  ranks: number,
+): Promise<ActionResult> {
+  try {
+    await requireSession();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("refund_skill_points", {
+      p_character: characterId,
+      p_skill: skillId,
+      p_ranks: ranks,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/characters/${characterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+// ------------------------------------------------------------- classes
+
+export async function upsertClass(input: {
+  id?: string;
+  name: string;
+  description: string;
+  pointsPerLevel: number;
+}): Promise<ActionResult & { id?: string }> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+
+    if (input.id) {
+      const { error } = await supabase
+        .from("classes")
+        .update({
+          name: input.name,
+          description: input.description,
+          points_per_level: input.pointsPerLevel,
+        })
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      revalidatePath("/trees");
+      revalidatePath(`/trees/${input.id}`);
+      return { ok: true, id: input.id };
+    }
+
+    const { data, error } = await supabase
+      .from("classes")
+      .insert({
+        name: input.name,
+        description: input.description,
+        points_per_level: input.pointsPerLevel,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    revalidatePath("/trees");
+    return { ok: true, id: data.id };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function deleteClass(id: string): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase.from("classes").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/trees");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+// --------------------------------------------------------------- skills
+
+export async function upsertSkill(input: {
+  id?: string;
+  classId: string;
+  name: string;
+  description: string;
+  maxRank: number;
+  costPerRank: number;
+  x: number;
+  y: number;
+  prereqSkillIds: string[];
+}): Promise<ActionResult & { id?: string }> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+
+    const row = {
+      class_id: input.classId,
+      name: input.name,
+      description: input.description,
+      max_rank: input.maxRank,
+      cost_per_rank: input.costPerRank,
+      x: input.x,
+      y: input.y,
+      prereq_skill_ids: input.prereqSkillIds,
+    };
+
+    if (input.id) {
+      const { error } = await supabase
+        .from("skills")
+        .update(row)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      revalidatePath(`/trees/${input.classId}`);
+      return { ok: true, id: input.id };
+    }
+
+    const { data, error } = await supabase
+      .from("skills")
+      .insert(row)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    revalidatePath(`/trees/${input.classId}`);
+    return { ok: true, id: data.id };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function deleteSkill(
+  id: string,
+  classId: string,
+): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase.from("skills").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath(`/trees/${classId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+// ---------------------------------------------------------------- items
+
+export async function upsertItem(input: {
+  id?: string;
+  name: string;
+  description: string;
+}): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const row = { name: input.name, description: input.description };
+    const query = input.id
+      ? supabase.from("items").update(row).eq("id", input.id)
+      : supabase.from("items").insert(row);
+    const { error } = await query;
+    if (error) throw new Error(error.message);
+    revalidatePath("/items");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function deleteItem(id: string): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase.from("items").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/items");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+// ------------------------------------------------------------ inventory
+
+export async function adjustInventory(input: {
+  characterId: string;
+  itemId: string;
+  delta: number;
+}): Promise<ActionResult> {
+  try {
+    await requireSession();
+    const supabase = await createClient();
+
+    const { data: existing } = await supabase
+      .from("inventory")
+      .select("id, quantity")
+      .eq("character_id", input.characterId)
+      .eq("item_id", input.itemId)
+      .maybeSingle();
+
+    const newQty = (existing?.quantity ?? 0) + input.delta;
+
+    if (newQty <= 0 && existing) {
+      const { error } = await supabase
+        .from("inventory")
+        .delete()
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    } else if (existing) {
+      const { error } = await supabase
+        .from("inventory")
+        .update({ quantity: newQty })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    } else if (newQty > 0) {
+      const { error } = await supabase.from("inventory").insert({
+        character_id: input.characterId,
+        item_id: input.itemId,
+        quantity: newQty,
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath(`/characters/${input.characterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function transferInventory(input: {
+  fromCharacterId: string;
+  toCharacterId: string;
+  itemId: string;
+  quantity: number;
+}): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("transfer_inventory", {
+      p_from_character: input.fromCharacterId,
+      p_to_character: input.toCharacterId,
+      p_item: input.itemId,
+      p_quantity: input.quantity,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/characters/${input.fromCharacterId}`);
+    revalidatePath(`/characters/${input.toCharacterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+// -------------------------------------------------------- session notes
+
+export async function upsertSessionNote(input: {
+  id?: string;
+  title: string;
+  occurredOn: string;
+  contentMd: string;
+}): Promise<ActionResult & { id?: string }> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const row = {
+      title: input.title,
+      occurred_on: input.occurredOn,
+      content_md: input.contentMd,
+    };
+
+    if (input.id) {
+      const { error } = await supabase
+        .from("session_notes")
+        .update(row)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      revalidatePath("/sessions");
+      return { ok: true, id: input.id };
+    }
+
+    const { data, error } = await supabase
+      .from("session_notes")
+      .insert(row)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    revalidatePath("/sessions");
+    return { ok: true, id: data.id };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function deleteSessionNote(id: string): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("session_notes")
+      .delete()
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/sessions");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
