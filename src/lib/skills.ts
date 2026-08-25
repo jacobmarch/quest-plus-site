@@ -127,6 +127,13 @@ export type SkillTierColumn = {
   skills: SkillRow[];
 };
 
+export type LaidOutSkill = SkillRow & { lane: number };
+
+export type SkillTreeLayout = {
+  columns: Array<{ tier: number; skills: LaidOutSkill[] }>;
+  maxLane: number;
+};
+
 /**
  * Groups ordered skills into tier columns, preserving the branch order of
  * the input within each column.
@@ -144,4 +151,43 @@ export function buildTierColumns(
     });
   }
   return columns;
+}
+
+/**
+ * Assigns a vertical lane to every skill so later-tier abilities sit in the
+ * same band as their parent instead of packing against the top of the column.
+ * Within a column lanes never overlap; a node with several parents takes the
+ * uppermost parent's lane (first branch).
+ */
+export function assignLanes(columns: SkillTierColumn[]): SkillTreeLayout {
+  const lanes = new Map<string, number>();
+  let maxLane = -1;
+
+  for (const col of columns) {
+    let last = -1;
+    for (const skill of col.skills) {
+      const parentLanes = skill.prereq_skill_ids
+        .map((id) => lanes.get(id))
+        .filter((n): n is number => n !== undefined);
+      const preferred =
+        parentLanes.length > 0 ? Math.min(...parentLanes) : last + 1;
+      const lane = Math.max(preferred, last + 1);
+      lanes.set(skill.id, lane);
+      last = lane;
+      maxLane = Math.max(maxLane, lane);
+    }
+  }
+
+  return {
+    maxLane,
+    columns: columns.map((col) => ({
+      tier: col.tier,
+      skills: col.skills.map((s) => ({ ...s, lane: lanes.get(s.id) ?? 0 })),
+    })),
+  };
+}
+
+export function layoutSkillTree(skills: SkillRow[]): SkillTreeLayout {
+  const { ordered, tierOf } = orderSkillsByBranch(skills);
+  return assignLanes(buildTierColumns(ordered, tierOf));
 }

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Plus, X } from "lucide-react";
 import type { SkillRow } from "@/lib/database.types";
-import { buildTierColumns, orderSkillsByBranch } from "@/lib/skills";
+import { layoutSkillTree } from "@/lib/skills";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -46,13 +46,8 @@ export function SkillTreeView({
     return ids;
   }, [skills, unlockedIds]);
 
-  const columns = useMemo(
-    () => {
-      const { ordered, tierOf } = orderSkillsByBranch(skills);
-      return buildTierColumns(ordered, tierOf);
-    },
-    [skills],
-  );
+  const tree = useMemo(() => layoutSkillTree(skills), [skills]);
+  const columns = tree.columns;
 
   const nameById = useMemo(
     () => new Map(skills.map((s) => [s.id, s.name])),
@@ -60,14 +55,21 @@ export function SkillTreeView({
   );
 
   // ----- connector geometry -------------------------------------------------
-  const containerRef = useRef<HTMLDivElement>(null);
+  // The SVG must cover the full tree *content* (not the visible scrollport).
+  // Overlaying it on overflow-x-auto clips later-tier edges and, after a
+  // remeasure on select, desyncs earlier branches from the scrolled cards.
+  const contentRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
-  const [rects, setRects] = useState<Map<string, Rect>>(new Map());
+  const [layout, setLayout] = useState<{
+    rects: Map<string, Rect>;
+    width: number;
+    height: number;
+  }>({ rects: new Map(), width: 0, height: 0 });
 
   const measure = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const origin = container.getBoundingClientRect();
+    const content = contentRef.current;
+    if (!content) return;
+    const origin = content.getBoundingClientRect();
     const next = new Map<string, Rect>();
     cardRefs.current.forEach((el, id) => {
       const box = el.getBoundingClientRect();
@@ -78,7 +80,11 @@ export function SkillTreeView({
         height: box.height,
       });
     });
-    setRects(next);
+    setLayout({
+      rects: next,
+      width: content.offsetWidth,
+      height: content.offsetHeight,
+    });
   }, []);
 
   useLayoutEffect(() => {
@@ -87,7 +93,7 @@ export function SkillTreeView({
 
   useEffect(() => {
     const observer = new ResizeObserver(() => measure());
-    if (containerRef.current) observer.observe(containerRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
@@ -97,6 +103,7 @@ export function SkillTreeView({
 
   const edges = useMemo(() => {
     const list: Array<{ key: string; d: string; active: boolean }> = [];
+    const { rects } = layout;
     if (rects.size === 0) return list;
     for (const skill of skills) {
       const child = rects.get(skill.id);
@@ -118,7 +125,7 @@ export function SkillTreeView({
       }
     }
     return list;
-  }, [skills, rects, unlockedIds]);
+  }, [skills, layout, unlockedIds]);
 
   // ----- edit-mode link picking --------------------------------------------
   const [pickingParentFor, setPickingParentFor] = useState<string | null>(
@@ -169,43 +176,54 @@ export function SkillTreeView({
         </div>
       ) : null}
 
-      <div
-        ref={containerRef}
-        className="relative overflow-x-auto pb-2"
-      >
-        <svg
-          aria-hidden
-          className="pointer-events-none absolute inset-0 size-full"
-        >
-          {edges.map((edge) => (
-            <path
-              key={edge.key}
-              d={edge.d}
-              fill="none"
-              strokeWidth={edge.active ? 2 : 1.5}
-              strokeDasharray={edge.active ? undefined : "4 4"}
-              className={
-                edge.active
-                  ? "stroke-primary"
-                  : "stroke-muted-foreground/50"
-              }
-            />
-          ))}
-        </svg>
+      <div className="overflow-x-auto pb-2">
+        <div ref={contentRef} className="relative min-w-fit">
+          <svg
+            aria-hidden
+            width={layout.width}
+            height={layout.height}
+            viewBox={`0 0 ${Math.max(layout.width, 1)} ${Math.max(layout.height, 1)}`}
+            className="pointer-events-none absolute left-0 top-0 overflow-visible"
+          >
+            {edges.map((edge) => (
+              <path
+                key={edge.key}
+                d={edge.d}
+                fill="none"
+                strokeWidth={edge.active ? 2 : 1.5}
+                strokeDasharray={edge.active ? undefined : "4 4"}
+                className={
+                  edge.active
+                    ? "stroke-primary"
+                    : "stroke-muted-foreground/50"
+                }
+              />
+            ))}
+          </svg>
 
-        <div
-          className="relative flex min-w-fit items-stretch gap-16 px-2 py-2"
-          style={{ minHeight: 160 }}
-        >
-          {columns.map(({ tier, skills: tierSkills }) => (
-            <section
-              key={tier}
-              className="flex w-60 shrink-0 flex-col items-center gap-6"
-            >
-              <Badge variant="outline" className="bg-background">
-                Tier {tier + 1}
-              </Badge>
-              {tierSkills.map((skill) => {
+          <div
+            className="relative grid px-2 py-2"
+            style={{
+              minHeight: 160,
+              gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, 15rem)`,
+              gridTemplateRows: `auto repeat(${Math.max(tree.maxLane + 1, 1)}, auto)`,
+              columnGap: "4rem",
+              rowGap: "1.5rem",
+            }}
+          >
+            {columns.map(({ tier }) => (
+              <div
+                key={`label-${tier}`}
+                className="flex justify-center"
+                style={{ gridColumn: tier + 1, gridRow: 1 }}
+              >
+                <Badge variant="outline" className="bg-background">
+                  Tier {tier + 1}
+                </Badge>
+              </div>
+            ))}
+            {columns.flatMap(({ tier, skills: tierSkills }) =>
+              tierSkills.map((skill) => {
                 const state = unlockedIds.has(skill.id)
                   ? "learned"
                   : skill.prereq_skill_ids.every((id) =>
@@ -220,6 +238,11 @@ export function SkillTreeView({
                     ref={(el) => {
                       if (el) cardRefs.current.set(skill.id, el);
                       else cardRefs.current.delete(skill.id);
+                    }}
+                    className="min-w-0"
+                    style={{
+                      gridColumn: tier + 1,
+                      gridRow: skill.lane + 2,
                     }}
                   >
                     <button
@@ -283,9 +306,9 @@ export function SkillTreeView({
                     </button>
                   </div>
                 );
-              })}
-            </section>
-          ))}
+              }),
+            )}
+          </div>
         </div>
       </div>
     </div>
