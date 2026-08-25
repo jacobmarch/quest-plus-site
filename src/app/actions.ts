@@ -172,18 +172,16 @@ export async function levelUpCharacter(id: string): Promise<ActionResult> {
 
 // ----------------------------------------------------------- skill trees
 
-export async function spendSkillPoints(
+export async function unlockSkill(
   characterId: string,
   skillId: string,
-  ranks: number,
 ): Promise<ActionResult> {
   try {
     await requireSession();
     const supabase = await createClient();
-    const { error } = await supabase.rpc("spend_skill_points", {
+    const { error } = await supabase.rpc("unlock_skill", {
       p_character: characterId,
       p_skill: skillId,
-      p_ranks: ranks,
     });
     if (error) throw new Error(error.message);
     revalidatePath(`/characters/${characterId}`);
@@ -193,18 +191,16 @@ export async function spendSkillPoints(
   }
 }
 
-export async function refundSkillPoints(
+export async function lockSkill(
   characterId: string,
   skillId: string,
-  ranks: number,
 ): Promise<ActionResult> {
   try {
     await requireSession();
     const supabase = await createClient();
-    const { error } = await supabase.rpc("refund_skill_points", {
+    const { error } = await supabase.rpc("lock_skill", {
       p_character: characterId,
       p_skill: skillId,
-      p_ranks: ranks,
     });
     if (error) throw new Error(error.message);
     revalidatePath(`/characters/${characterId}`);
@@ -278,10 +274,7 @@ export async function upsertSkill(input: {
   classId: string;
   name: string;
   description: string;
-  maxRank: number;
-  costPerRank: number;
-  x: number;
-  y: number;
+  cost: number;
   prereqSkillIds: string[];
 }): Promise<ActionResult & { id?: string }> {
   try {
@@ -292,10 +285,7 @@ export async function upsertSkill(input: {
       class_id: input.classId,
       name: input.name,
       description: input.description,
-      max_rank: input.maxRank,
-      cost_per_rank: input.costPerRank,
-      x: input.x,
-      y: input.y,
+      cost: input.cost,
       prereq_skill_ids: input.prereqSkillIds,
     };
 

@@ -17,17 +17,14 @@ export type Database = {
       character_skills: {
         Row: {
           character_id: string;
-          rank: number;
           skill_id: string;
         };
         Insert: {
           character_id: string;
-          rank?: number;
           skill_id: string;
         };
         Update: {
           character_id?: string;
-          rank?: number;
           skill_id?: string;
         };
         Relationships: [
@@ -248,39 +245,30 @@ export type Database = {
       skills: {
         Row: {
           class_id: string;
-          cost_per_rank: number;
+          cost: number;
           created_at: string;
           description: string;
           id: string;
-          max_rank: number;
           name: string;
           prereq_skill_ids: string[];
-          x: number;
-          y: number;
         };
         Insert: {
           class_id: string;
-          cost_per_rank?: number;
+          cost?: number;
           created_at?: string;
           description?: string;
           id?: string;
-          max_rank?: number;
           name: string;
           prereq_skill_ids?: string[];
-          x?: number;
-          y?: number;
         };
         Update: {
           class_id?: string;
-          cost_per_rank?: number;
+          cost?: number;
           created_at?: string;
           description?: string;
           id?: string;
-          max_rank?: number;
           name?: string;
           prereq_skill_ids?: string[];
-          x?: number;
-          y?: number;
         };
         Relationships: [
           {
@@ -301,12 +289,8 @@ export type Database = {
         Args: { p_id: string; p_updates: Json };
         Returns: undefined;
       };
-      refund_skill_points: {
-        Args: { p_character: string; p_ranks: number; p_skill: string };
-        Returns: undefined;
-      };
-      spend_skill_points: {
-        Args: { p_character: string; p_ranks: number; p_skill: string };
+      lock_skill: {
+        Args: { p_character: string; p_skill: string };
         Returns: undefined;
       };
       transfer_inventory: {
@@ -316,6 +300,10 @@ export type Database = {
           p_quantity: number;
           p_to_character: string;
         };
+        Returns: undefined;
+      };
+      unlock_skill: {
+        Args: { p_character: string; p_skill: string };
         Returns: undefined;
       };
     };

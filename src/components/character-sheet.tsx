@@ -7,8 +7,8 @@ import {
   adjustInventory,
   deleteCharacter,
   levelUpCharacter,
-  refundSkillPoints,
-  spendSkillPoints,
+  lockSkill,
+  unlockSkill,
   updateCharacterFields,
 } from "@/app/actions";
 import type {
@@ -37,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SkillTreePanel } from "@/components/skill-tree-panel";
 import { InventoryPanel } from "@/components/inventory-panel";
 
-type LearnedRow = { skill_id: string; rank: number };
+type LearnedRow = { skill_id: string };
 
 export function CharacterSheet({
   character,
@@ -69,9 +69,7 @@ export function CharacterSheet({
     cls,
     character,
     learned.map((l) => ({
-      rank: l.rank,
-      cost_per_rank:
-        skills.find((s) => s.id === l.skill_id)?.cost_per_rank ?? 1,
+      cost: skills.find((s) => s.id === l.skill_id)?.cost ?? 1,
     })),
   );
 
@@ -389,17 +387,16 @@ export function CharacterSheet({
 
         <TabsContent value="skills" className="pt-4">
           <SkillTreePanel
-            characterId={character.id}
             classId={character.class_id}
             skills={skills.filter((s) => s.class_id === character.class_id)}
             learned={learned}
             points={points}
             pending={pending}
-            onSpend={(skillId, ranks) =>
-              run(() => spendSkillPoints(character.id, skillId, ranks))
+            onUnlock={(skillId) =>
+              run(() => unlockSkill(character.id, skillId))
             }
-            onRefund={(skillId, ranks) =>
-              run(() => refundSkillPoints(character.id, skillId, ranks))
+            onLock={(skillId) =>
+              run(() => lockSkill(character.id, skillId))
             }
           />
         </TabsContent>

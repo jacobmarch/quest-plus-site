@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
-import { SkillTreeCanvas } from "@/components/skill-tree-canvas";
+import { SkillTreeView } from "@/components/skill-tree-view";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,26 +13,24 @@ import {
 import type { SkillRow } from "@/lib/database.types";
 import type { SkillPointsSummary } from "@/lib/skills";
 
-type LearnedRow = { skill_id: string; rank: number };
+type LearnedRow = { skill_id: string };
 
 export function SkillTreePanel({
-  characterId,
   classId,
   skills,
   learned,
   points,
   pending,
-  onSpend,
-  onRefund,
+  onUnlock,
+  onLock,
 }: {
-  characterId: string;
   classId: string | null;
   skills: SkillRow[];
   learned: LearnedRow[];
   points: SkillPointsSummary;
   pending: boolean;
-  onSpend: (skillId: string, ranks: number) => void;
-  onRefund: (skillId: string, ranks: number) => void;
+  onUnlock: (skillId: string) => void;
+  onLock: (skillId: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -50,36 +47,40 @@ export function SkillTreePanel({
     );
   }
 
-  const ranksById = new Map(learned.map((l) => [l.skill_id, l.rank]));
+  const unlockedIds = new Set(learned.map((l) => l.skill_id));
   const selected = skills.find((s) => s.id === selectedId) ?? null;
-  const selectedRank = selected ? (ranksById.get(selected.id) ?? 0) : 0;
+  const isUnlocked = selected ? unlockedIds.has(selected.id) : false;
   const prereqMet =
     !selected ||
-    selected.prereq_skill_ids.every((id) => (ranksById.get(id) ?? 0) > 0);
+    selected.prereq_skill_ids.every((id) => unlockedIds.has(id));
   const canAfford = selected
-    ? points.available >= Number(selected.cost_per_rank)
+    ? points.available >= Number(selected.cost)
     : false;
-  const canLearn =
+  const canUnlock =
+    !!selected && !isUnlocked && prereqMet && canAfford && !pending;
+  // An ability that leads to something already unlocked can't be removed.
+  const blocksDependents =
     !!selected &&
-    prereqMet &&
-    canAfford &&
-    selectedRank < selected.max_rank &&
-    !pending;
-  const canForget = !!selected && selectedRank > 0 && !pending;
+    skills.some(
+      (s) =>
+        s.prereq_skill_ids.includes(selected.id) &&
+        unlockedIds.has(s.id),
+    );
+  const canLock = isUnlocked && !blocksDependents && !pending;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {points.available} of {points.total} skill points available
-          ({points.spent} spent). Click a node to learn or refund ranks.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        {points.available} of {points.total} skill points available (
+        {points.spent} spent). Start at Tier 1 and work right — click any
+        ability to unlock it for its one-time cost.
+      </p>
 
-      <SkillTreeCanvas
+      <SkillTreeView
         skills={skills}
-        ranksById={ranksById}
-        onNodeClick={setSelectedId}
+        unlockedIds={unlockedIds}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
       />
 
       {selected ? (
@@ -87,48 +88,52 @@ export function SkillTreePanel({
           <CardHeader>
             <CardTitle>{selected.name}</CardTitle>
             <CardDescription>
-              Rank {selectedRank}/{selected.max_rank} · costs{" "}
-              {Number(selected.cost_per_rank)} point(s) per rank
+              {isUnlocked
+                ? "Unlocked"
+                : `Costs ${Number(selected.cost)} point(s) to unlock`}{" "}
+              · one-time purchase, no ranking up
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {selected.description ? (
               <p className="text-sm">{selected.description}</p>
             ) : null}
-            {!prereqMet ? (
+            {!prereqMet && !isUnlocked ? (
               <p className="text-sm text-destructive">
-                Learn the prerequisite skills first.
+                Unlock the abilities that lead to this one first.
               </p>
             ) : null}
-            {!canAfford && prereqMet && selectedRank < selected.max_rank ? (
+            {!canAfford && prereqMet && !isUnlocked ? (
               <p className="text-sm text-destructive">
                 Not enough skill points.
+              </p>
+            ) : null}
+            {blocksDependents ? (
+              <p className="text-sm text-destructive">
+                Lock the abilities that require this one first.
               </p>
             ) : null}
             <div className="flex gap-2">
               <Button
                 size="sm"
-                disabled={!canLearn}
-                onClick={() => onSpend(selected.id, 1)}
+                disabled={!canUnlock}
+                onClick={() => onUnlock(selected.id)}
               >
-                Learn 1 rank
+                Unlock ({Number(selected.cost)} pt
+                {Number(selected.cost) === 1 ? "" : "s"})
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!canForget}
-                onClick={() => onRefund(selected.id, 1)}
+                disabled={!canLock}
+                onClick={() => onLock(selected.id)}
               >
-                Refund 1 rank
+                Lock (refund)
               </Button>
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <p className="text-center text-sm text-muted-foreground">
-          Select a node in the tree to see details.
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }
