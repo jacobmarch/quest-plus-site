@@ -44,6 +44,45 @@ export type Database = {
           },
         ];
       };
+      audit_events: {
+        Row: {
+          action: string;
+          actor_id: string | null;
+          after_data: Json | null;
+          before_data: Json | null;
+          created_at: string;
+          description: string;
+          entity_type: string;
+          id: string;
+          target_character_id: string | null;
+          target_owner_id: string | null;
+        };
+        Insert: {
+          action: string;
+          actor_id?: string | null;
+          after_data?: Json | null;
+          before_data?: Json | null;
+          created_at?: string;
+          description: string;
+          entity_type: string;
+          id?: string;
+          target_character_id?: string | null;
+          target_owner_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor_id?: string | null;
+          after_data?: Json | null;
+          before_data?: Json | null;
+          created_at?: string;
+          description?: string;
+          entity_type?: string;
+          id?: string;
+          target_character_id?: string | null;
+          target_owner_id?: string | null;
+        };
+        Relationships: [];
+      };
       characters: {
         Row: {
           class_id: string | null;
@@ -139,21 +178,24 @@ export type Database = {
           character_id: string;
           created_at: string;
           id: string;
-          item_id: string;
+          item_id: string | null;
+          item_name: string;
           quantity: number;
         };
         Insert: {
           character_id: string;
           created_at?: string;
           id?: string;
-          item_id: string;
+          item_id?: string | null;
+          item_name: string;
           quantity?: number;
         };
         Update: {
           character_id?: string;
           created_at?: string;
           id?: string;
-          item_id?: string;
+          item_id?: string | null;
+          item_name?: string;
           quantity?: number;
         };
         Relationships: [
@@ -249,6 +291,7 @@ export type Database = {
           created_at: string;
           description: string;
           id: string;
+          is_default: boolean;
           name: string;
           prereq_skill_ids: string[];
         };
@@ -258,6 +301,7 @@ export type Database = {
           created_at?: string;
           description?: string;
           id?: string;
+          is_default?: boolean;
           name: string;
           prereq_skill_ids?: string[];
         };
@@ -267,6 +311,7 @@ export type Database = {
           created_at?: string;
           description?: string;
           id?: string;
+          is_default?: boolean;
           name?: string;
           prereq_skill_ids?: string[];
         };
@@ -285,8 +330,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      adjust_inventory: {
+        Args: { p_character: string; p_delta: number; p_item: string };
+        Returns: undefined;
+      };
       dm_update_character: {
         Args: { p_id: string; p_updates: Json };
+        Returns: undefined;
+      };
+      grant_default_skills: {
+        Args: { p_character: string };
         Returns: undefined;
       };
       lock_skill: {
@@ -296,7 +349,7 @@ export type Database = {
       transfer_inventory: {
         Args: {
           p_from_character: string;
-          p_item: string;
+          p_item_name: string;
           p_quantity: number;
           p_to_character: string;
         };
@@ -325,6 +378,7 @@ export type ClassRow = Database["public"]["Tables"]["classes"]["Row"];
 export type SkillRow = Database["public"]["Tables"]["skills"]["Row"];
 export type ItemRow = Database["public"]["Tables"]["items"]["Row"];
 export type InventoryRow = Database["public"]["Tables"]["inventory"]["Row"];
+export type AuditEventRow = Database["public"]["Tables"]["audit_events"]["Row"];
 export type SessionNoteRow =
   Database["public"]["Tables"]["session_notes"]["Row"];
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];

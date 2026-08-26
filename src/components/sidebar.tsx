@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  ClipboardList,
   Coins,
   LayoutDashboard,
   Network,
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/bestiary", label: "Bestiary", icon: Swords, dmOnly: true },
   { href: "/trees", label: "Skill Trees", icon: Network, dmOnly: true },
   { href: "/items", label: "Items", icon: Coins, dmOnly: true },
+  { href: "/events", label: "Game Events", icon: ClipboardList, dmOnly: true },
   { href: "/sessions", label: "Sessions", icon: ScrollText },
 ];
 

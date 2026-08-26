@@ -15,7 +15,6 @@ import type {
   CharacterRow,
   ClassRow,
   InventoryRow,
-  ItemRow,
   ProfileRow,
   SkillRow,
 } from "@/lib/database.types";
@@ -45,7 +44,6 @@ export function CharacterSheet({
   skills,
   learned,
   inventory,
-  items,
   profiles,
   transferTargets,
   isDm,
@@ -55,8 +53,7 @@ export function CharacterSheet({
   cls: ClassRow | null;
   skills: SkillRow[];
   learned: LearnedRow[];
-  inventory: Array<Pick<InventoryRow, "id" | "item_id" | "quantity">>;
-  items: ItemRow[];
+  inventory: Array<Pick<InventoryRow, "id" | "item_name" | "quantity">>;
   profiles: Array<Pick<ProfileRow, "id" | "display_name">>;
   transferTargets: Array<Pick<CharacterRow, "id" | "name">>;
   isDm: boolean;
@@ -70,6 +67,8 @@ export function CharacterSheet({
     character,
     learned.map((l) => ({
       cost: skills.find((s) => s.id === l.skill_id)?.cost ?? 1,
+      is_default:
+        skills.find((s) => s.id === l.skill_id)?.is_default ?? false,
     })),
   );
 
@@ -405,11 +404,17 @@ export function CharacterSheet({
           <InventoryPanel
             characterId={character.id}
             inventory={inventory}
-            items={items}
             transferTargets={transferTargets}
+            isDm={isDm}
             pending={pending}
-            onAdjust={(itemId, delta) =>
-              run(() => adjustInventory({ characterId: character.id, itemId, delta }))
+            onAdjust={(itemName, delta) =>
+              run(() =>
+                adjustInventory({
+                  characterId: character.id,
+                  itemName,
+                  delta,
+                }),
+              )
             }
           />
         </TabsContent>

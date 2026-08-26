@@ -57,6 +57,7 @@ export function TreeEditor({
       description: child.description,
       cost: Number(child.cost),
       prereqSkillIds: nextIds,
+      isDefault: child.is_default,
     });
   }
 
@@ -141,6 +142,7 @@ function AddAbilityForm({
       description: String(formData.get("description") ?? ""),
       cost: Math.max(0, Number(formData.get("cost") ?? 1)),
       prereqSkillIds: formData.getAll("prereqs").map(String),
+      isDefault: formData.get("isDefault") === "on",
     });
   }
 
@@ -183,6 +185,19 @@ function AddAbilityForm({
               placeholder="What does this ability do?"
             />
           </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              name="isDefault"
+              className="size-4 accent-[var(--primary)]"
+            />
+            <span>
+              Starting skill
+              <span className="ml-1 text-muted-foreground">
+                (granted free at character creation)
+              </span>
+            </span>
+          </label>
           {skills.length > 0 ? (
             <div className="space-y-1 sm:col-span-2">
               <Label>Leads from (prerequisites)</Label>
@@ -238,6 +253,7 @@ function EditAbilityForm({
       description: String(formData.get("description") ?? ""),
       cost: Math.max(0, Number(formData.get("cost") ?? 1)),
       prereqSkillIds: prereqs.filter((id) => id !== skill.id),
+      isDefault: formData.get("isDefault") === "on",
     });
   }
 
@@ -303,6 +319,20 @@ function EditAbilityForm({
                 ))}
             </div>
           </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              name="isDefault"
+              defaultChecked={skill.is_default}
+              className="size-4 accent-[var(--primary)]"
+            />
+            <span>
+              Starting skill
+              <span className="ml-1 text-muted-foreground">
+                (granted free at character creation)
+              </span>
+            </span>
+          </label>
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Saving..." : "Save changes"}

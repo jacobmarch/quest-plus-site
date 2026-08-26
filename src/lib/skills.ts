@@ -4,7 +4,7 @@ import type {
   SkillRow,
 } from "@/lib/database.types";
 
-export type LearnedSkill = SkillRow & { rank: number };
+export type LearnedSkill = SkillRow;
 
 export type SkillPointsSummary = {
   total: number;
@@ -15,11 +15,14 @@ export type SkillPointsSummary = {
 export function computeSkillPoints(
   cls: Pick<ClassRow, "points_per_level"> | null | undefined,
   character: Pick<CharacterRow, "level">,
-  learned: Array<Pick<SkillRow, "cost">>,
+  learned: Array<Pick<SkillRow, "cost" | "is_default">>,
 ): SkillPointsSummary {
   const perLevel = cls?.points_per_level ?? 0;
   const total = (character.level ?? 0) * perLevel;
-  const spent = learned.reduce((sum, s) => sum + Number(s.cost), 0);
+  const spent = learned.reduce(
+    (sum, s) => sum + (s.is_default ? 0 : Number(s.cost)),
+    0,
+  );
   return { total, spent, available: total - spent };
 }
 

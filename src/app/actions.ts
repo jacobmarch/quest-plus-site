@@ -80,6 +80,12 @@ export async function createCharacter(input: {
       .single();
 
     if (error) throw new Error(error.message);
+    if (input.classId) {
+      const { error: skillError } = await supabase.rpc("grant_default_skills", {
+        p_character: data.id,
+      });
+      if (skillError) throw new Error(skillError.message);
+    }
     revalidatePath("/characters");
     revalidatePath("/bestiary");
     revalidatePath("/");
@@ -276,6 +282,7 @@ export async function upsertSkill(input: {
   description: string;
   cost: number;
   prereqSkillIds: string[];
+  isDefault: boolean;
 }): Promise<ActionResult & { id?: string }> {
   try {
     await requireDm();
@@ -287,6 +294,7 @@ export async function upsertSkill(input: {
       description: input.description,
       cost: input.cost,
       prereq_skill_ids: input.prereqSkillIds,
+      is_default: input.isDefault,
     };
 
     if (input.id) {
@@ -368,42 +376,28 @@ export async function deleteItem(id: string): Promise<ActionResult> {
 
 export async function adjustInventory(input: {
   characterId: string;
-  itemId: string;
+  itemName: string;
   delta: number;
 }): Promise<ActionResult> {
   try {
     await requireSession();
-    const supabase = await createClient();
-
-    const { data: existing } = await supabase
-      .from("inventory")
-      .select("id, quantity")
-      .eq("character_id", input.characterId)
-      .eq("item_id", input.itemId)
-      .maybeSingle();
-
-    const newQty = (existing?.quantity ?? 0) + input.delta;
-
-    if (newQty <= 0 && existing) {
-      const { error } = await supabase
-        .from("inventory")
-        .delete()
-        .eq("id", existing.id);
-      if (error) throw new Error(error.message);
-    } else if (existing) {
-      const { error } = await supabase
-        .from("inventory")
-        .update({ quantity: newQty })
-        .eq("id", existing.id);
-      if (error) throw new Error(error.message);
-    } else if (newQty > 0) {
-      const { error } = await supabase.from("inventory").insert({
-        character_id: input.characterId,
-        item_id: input.itemId,
-        quantity: newQty,
-      });
-      if (error) throw new Error(error.message);
+    if (
+      !input.characterId ||
+      !input.itemName.trim() ||
+      input.itemName.trim().length > 200 ||
+      !Number.isInteger(input.delta) ||
+      input.delta === 0
+    ) {
+      throw new Error("Invalid inventory change");
     }
+
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("adjust_inventory", {
+      p_character: input.characterId,
+      p_item_name: input.itemName,
+      p_delta: input.delta,
+    });
+    if (error) throw new Error(error.message);
 
     revalidatePath(`/characters/${input.characterId}`);
     return { ok: true };
@@ -415,7 +409,7 @@ export async function adjustInventory(input: {
 export async function transferInventory(input: {
   fromCharacterId: string;
   toCharacterId: string;
-  itemId: string;
+  itemName: string;
   quantity: number;
 }): Promise<ActionResult> {
   try {
@@ -424,7 +418,7 @@ export async function transferInventory(input: {
     const { error } = await supabase.rpc("transfer_inventory", {
       p_from_character: input.fromCharacterId,
       p_to_character: input.toCharacterId,
-      p_item: input.itemId,
+      p_item_name: input.itemName,
       p_quantity: input.quantity,
     });
     if (error) throw new Error(error.message);

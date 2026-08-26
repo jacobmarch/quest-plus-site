@@ -2,8 +2,8 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { transferInventory } from "@/app/actions";
-import type { CharacterRow, InventoryRow, ItemRow } from "@/lib/database.types";
+import { adjustInventory, transferInventory } from "@/app/actions";
+import type { CharacterRow, InventoryRow } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,23 +18,21 @@ import { Label } from "@/components/ui/label";
 export function InventoryPanel({
   characterId,
   inventory,
-  items,
   transferTargets,
+  isDm,
   pending,
   onAdjust,
 }: {
   characterId: string;
-  inventory: Array<Pick<InventoryRow, "id" | "item_id" | "quantity">>;
-  items: ItemRow[];
+  inventory: Array<Pick<InventoryRow, "id" | "item_name" | "quantity">>;
   transferTargets: Array<Pick<CharacterRow, "id" | "name">>;
+  isDm: boolean;
   pending: boolean;
-  onAdjust: (itemId: string, delta: number) => void;
+  onAdjust: (itemName: string, delta: number) => void;
 }) {
-  const itemById = new Map(items.map((item) => [item.id, item]));
-  const rows = inventory
-    .map((row) => ({ row, item: itemById.get(row.item_id) }))
-    .filter((entry) => entry.item)
-    .sort((a, b) => a.item!.name.localeCompare(b.item!.name));
+  const rows = [...inventory].sort((a, b) =>
+    a.item_name.localeCompare(b.item_name),
+  );
 
   return (
     <div className="space-y-4">
@@ -48,29 +46,22 @@ export function InventoryPanel({
         <CardContent>
           {rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Empty pockets. The DM can grant or transfer items.
+              Empty pockets. Add an item below to get started.
             </p>
           ) : (
             <ul className="divide-y">
-              {rows.map(({ row, item }) => (
+              {rows.map((row) => (
                 <li
                   key={row.id}
                   className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{item!.name}</p>
-                    {item!.description ? (
-                      <p className="truncate text-sm text-muted-foreground">
-                        {item!.description}
-                      </p>
-                    ) : null}
-                  </div>
+                  <p className="truncate font-medium">{row.item_name}</p>
                   <div className="flex shrink-0 items-center gap-1">
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={pending || row.quantity <= 0}
-                      onClick={() => onAdjust(row.item_id, -1)}
+                      disabled={pending}
+                      onClick={() => onAdjust(row.item_name, -1)}
                     >
                       −
                     </Button>
@@ -81,7 +72,7 @@ export function InventoryPanel({
                       variant="outline"
                       size="sm"
                       disabled={pending}
-                      onClick={() => onAdjust(row.item_id, 1)}
+                      onClick={() => onAdjust(row.item_name, 1)}
                     >
                       +
                     </Button>
@@ -93,39 +84,110 @@ export function InventoryPanel({
         </CardContent>
       </Card>
 
-      {transferTargets.length > 0 ? (
+      <AddItemForm characterId={characterId} />
+
+      {isDm && transferTargets.length > 0 ? (
         <TransferForm
           characterId={characterId}
           targets={transferTargets}
-          items={items}
+          inventory={inventory}
         />
       ) : null}
     </div>
   );
 }
 
+function AddItemForm({
+  characterId,
+}: {
+  characterId: string;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    const itemName = String(formData.get("itemName") ?? "").trim();
+    const quantity = Number(formData.get("quantity") ?? 1);
+    if (!itemName || !Number.isInteger(quantity) || quantity < 1) return;
+
+    startTransition(async () => {
+      const result = await adjustInventory({
+        characterId,
+        itemName,
+        delta: quantity,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Item added");
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Add item</CardTitle>
+        <CardDescription>
+          Add any item, currency, or note to this inventory
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={handleSubmit} className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="addItemName">Item name</Label>
+            <Input
+              id="addItemName"
+              name="itemName"
+              required
+              placeholder="e.g. Potion, 50 gold, rope"
+              maxLength={200}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="addQuantity">Quantity</Label>
+            <Input
+              id="addQuantity"
+              name="quantity"
+              type="number"
+              min={1}
+              step={1}
+              defaultValue={1}
+              required
+            />
+          </div>
+          <div className="flex items-end sm:col-span-2">
+            <Button type="submit" disabled={pending} className="w-full">
+              {pending ? "Adding..." : "Add item"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function TransferForm({
   characterId,
   targets,
-  items,
+  inventory,
 }: {
   characterId: string;
   targets: Array<Pick<CharacterRow, "id" | "name">>;
-  items: ItemRow[];
+  inventory: Array<Pick<InventoryRow, "item_name">>;
 }) {
   const [pending, startTransition] = useTransition();
 
   function handleSubmit(formData: FormData) {
     const toCharacterId = String(formData.get("toCharacter") ?? "");
-    const itemId = String(formData.get("item") ?? "");
+    const itemName = String(formData.get("item") ?? "");
     const quantity = Number(formData.get("quantity") ?? 1);
-    if (!toCharacterId || !itemId || quantity < 1) return;
+    if (!toCharacterId || !itemName || quantity < 1) return;
 
     startTransition(async () => {
       const result = await transferInventory({
         fromCharacterId: characterId,
         toCharacterId,
-        itemId,
+        itemName,
         quantity,
       });
       if (!result.ok) {
@@ -180,9 +242,9 @@ function TransferForm({
               <option value="" disabled>
                 Choose item
               </option>
-              {items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
+              {inventory.map((item) => (
+                <option key={item.item_name} value={item.item_name}>
+                  {item.item_name}
                 </option>
               ))}
             </select>

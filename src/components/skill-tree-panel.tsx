@@ -50,6 +50,7 @@ export function SkillTreePanel({
   const unlockedIds = new Set(learned.map((l) => l.skill_id));
   const selected = skills.find((s) => s.id === selectedId) ?? null;
   const isUnlocked = selected ? unlockedIds.has(selected.id) : false;
+  const isStartingSkill = selected?.is_default ?? false;
   const prereqMet =
     !selected ||
     selected.prereq_skill_ids.every((id) => unlockedIds.has(id));
@@ -66,7 +67,8 @@ export function SkillTreePanel({
         s.prereq_skill_ids.includes(selected.id) &&
         unlockedIds.has(s.id),
     );
-  const canLock = isUnlocked && !blocksDependents && !pending;
+  const canLock =
+    isUnlocked && !isStartingSkill && !blocksDependents && !pending;
 
   return (
     <div className="space-y-4">
@@ -88,10 +90,12 @@ export function SkillTreePanel({
           <CardHeader>
             <CardTitle>{selected.name}</CardTitle>
             <CardDescription>
-              {isUnlocked
+              {isStartingSkill
+                ? "Starting skill — granted free at character creation"
+                : isUnlocked
                 ? "Unlocked"
                 : `Costs ${Number(selected.cost)} point(s) to unlock`}{" "}
-              · one-time purchase, no ranking up
+              {!isStartingSkill ? "· one-time purchase, no ranking up" : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -122,14 +126,16 @@ export function SkillTreePanel({
                 Unlock ({Number(selected.cost)} pt
                 {Number(selected.cost) === 1 ? "" : "s"})
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canLock}
-                onClick={() => onLock(selected.id)}
-              >
-                Lock (refund)
-              </Button>
+              {!isStartingSkill ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canLock}
+                  onClick={() => onLock(selected.id)}
+                >
+                  Lock (refund)
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>
