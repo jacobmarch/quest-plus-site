@@ -85,9 +85,11 @@ export type Database = {
       };
       characters: {
         Row: {
+          bronze_pieces: number;
           class_id: string | null;
           created_at: string;
           current_hp: number;
+          gold_pieces: number;
           id: string;
           is_dead: boolean;
           kind: string;
@@ -96,14 +98,17 @@ export type Database = {
           name: string;
           notes: string;
           owner_id: string | null;
+          silver_pieces: number;
           stats: Json;
           updated_at: string;
           xp: number;
         };
         Insert: {
+          bronze_pieces?: number;
           class_id?: string | null;
           created_at?: string;
           current_hp?: number;
+          gold_pieces?: number;
           id?: string;
           is_dead?: boolean;
           kind?: string;
@@ -112,14 +117,17 @@ export type Database = {
           name: string;
           notes?: string;
           owner_id?: string | null;
+          silver_pieces?: number;
           stats?: Json;
           updated_at?: string;
           xp?: number;
         };
         Update: {
+          bronze_pieces?: number;
           class_id?: string | null;
           created_at?: string;
           current_hp?: number;
+          gold_pieces?: number;
           id?: string;
           is_dead?: boolean;
           kind?: string;
@@ -128,6 +136,7 @@ export type Database = {
           name?: string;
           notes?: string;
           owner_id?: string | null;
+          silver_pieces?: number;
           stats?: Json;
           updated_at?: string;
           xp?: number;

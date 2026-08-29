@@ -11,7 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { SkillRow } from "@/lib/database.types";
-import type { SkillPointsSummary } from "@/lib/skills";
+import {
+  collectUnlockedSkillIds,
+  type SkillPointsSummary,
+} from "@/lib/skills";
 
 type LearnedRow = { skill_id: string };
 
@@ -47,7 +50,7 @@ export function SkillTreePanel({
     );
   }
 
-  const unlockedIds = new Set(learned.map((l) => l.skill_id));
+  const unlockedIds = collectUnlockedSkillIds(skills, learned);
   const selected = skills.find((s) => s.id === selectedId) ?? null;
   const isUnlocked = selected ? unlockedIds.has(selected.id) : false;
   const isStartingSkill = selected?.is_default ?? false;
@@ -112,12 +115,12 @@ export function SkillTreePanel({
                 Not enough skill points.
               </p>
             ) : null}
-            {blocksDependents ? (
+            {blocksDependents && !isStartingSkill ? (
               <p className="text-sm text-destructive">
                 Lock the abilities that require this one first.
               </p>
             ) : null}
-            <div className="flex gap-2">
+            {!isUnlocked ? (
               <Button
                 size="sm"
                 disabled={!canUnlock}
@@ -126,17 +129,17 @@ export function SkillTreePanel({
                 Unlock ({Number(selected.cost)} pt
                 {Number(selected.cost) === 1 ? "" : "s"})
               </Button>
-              {!isStartingSkill ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canLock}
-                  onClick={() => onLock(selected.id)}
-                >
-                  Lock (refund)
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
+            {isUnlocked && !isStartingSkill ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canLock}
+                onClick={() => onLock(selected.id)}
+              >
+                Lock (refund)
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

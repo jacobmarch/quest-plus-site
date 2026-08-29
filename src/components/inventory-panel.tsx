@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { adjustInventory, transferInventory } from "@/app/actions";
 import type { CharacterRow, InventoryRow } from "@/lib/database.types";
+import { CoinPurse, type CoinField } from "@/components/coin-purse";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,16 +19,24 @@ import { Label } from "@/components/ui/label";
 export function InventoryPanel({
   characterId,
   inventory,
+  gold,
+  silver,
+  bronze,
   transferTargets,
   isDm,
   pending,
+  onCoinChange,
   onAdjust,
 }: {
   characterId: string;
   inventory: Array<Pick<InventoryRow, "id" | "item_name" | "quantity">>;
+  gold: number;
+  silver: number;
+  bronze: number;
   transferTargets: Array<Pick<CharacterRow, "id" | "name">>;
   isDm: boolean;
   pending: boolean;
+  onCoinChange: (field: CoinField, value: number) => void;
   onAdjust: (itemName: string, delta: number) => void;
 }) {
   const rows = [...inventory].sort((a, b) =>
@@ -36,6 +45,26 @@ export function InventoryPanel({
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Coin purse</CardTitle>
+          <CardDescription>
+            Gold, silver, and bronze pieces — edit here instead of as inventory
+            items
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CoinPurse
+            idPrefix="inventory"
+            gold={gold}
+            silver={silver}
+            bronze={bronze}
+            pending={pending}
+            onChange={onCoinChange}
+          />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Carried items</CardTitle>
@@ -128,7 +157,7 @@ function AddItemForm({
       <CardHeader>
         <CardTitle>Add item</CardTitle>
         <CardDescription>
-          Add any item, currency, or note to this inventory
+          Add any item or note to this inventory
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -139,7 +168,7 @@ function AddItemForm({
               id="addItemName"
               name="itemName"
               required
-              placeholder="e.g. Potion, 50 gold, rope"
+              placeholder="e.g. Potion, rope"
               maxLength={200}
             />
           </div>

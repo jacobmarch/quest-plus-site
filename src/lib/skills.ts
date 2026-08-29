@@ -29,8 +29,24 @@ export function computeSkillPoints(
 export type SkillNodeState = "unlocked" | "available" | "locked";
 
 /**
- * An ability is unlocked when it appears in the character's learned set.
- * Otherwise it is available (all prerequisites unlocked) or locked.
+ * Learned abilities plus class starting skills. Starting skills are granted
+ * free at character creation and always count as unlocked on the sheet.
+ */
+export function collectUnlockedSkillIds(
+  skills: Array<Pick<SkillRow, "id" | "is_default">>,
+  learned: Array<{ skill_id: string }>,
+): Set<string> {
+  const ids = new Set(learned.map((row) => row.skill_id));
+  for (const skill of skills) {
+    if (skill.is_default) ids.add(skill.id);
+  }
+  return ids;
+}
+
+/**
+ * An ability is unlocked when it appears in the character's learned set or
+ * is a starting skill. Otherwise it is available (all prerequisites
+ * unlocked) or locked.
  */
 export function getSkillNodeState(
   skill: Pick<SkillRow, "id" | "prereq_skill_ids">,

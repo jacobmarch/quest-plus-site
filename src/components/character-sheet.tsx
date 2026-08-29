@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { CoinPurse, type CoinField } from "@/components/coin-purse";
 import { SkillTreePanel } from "@/components/skill-tree-panel";
 import { InventoryPanel } from "@/components/inventory-panel";
 
@@ -98,7 +99,6 @@ export function CharacterSheet({
           </h1>
           <p className="text-sm text-muted-foreground">
             {cls?.name ?? "No class"}
-            {cls ? ` · ${cls.points_per_level} pt(s) per level` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -261,59 +261,60 @@ export function CharacterSheet({
                     }}
                   />
                 </div>
+                <div className="flex w-full items-end justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="level">Level</Label>
+                    {isDm ? (
+                      <Input
+                        id="level"
+                        type="number"
+                        min={1}
+                        defaultValue={character.level}
+                        className="w-24"
+                        onBlur={(e) => {
+                          const value = Number(e.target.value);
+                          if (!Number.isNaN(value) && value >= 1) {
+                            update({ level: value });
+                          }
+                        }}
+                      />
+                    ) : (
+                      <p id="level" className="text-2xl font-semibold tabular-nums">
+                        {character.level}
+                      </p>
+                    )}
+                  </div>
+                  <CoinPurse
+                    idPrefix="overview"
+                    gold={character.gold_pieces}
+                    silver={character.silver_pieces}
+                    bronze={character.bronze_pieces}
+                    pending={pending}
+                    className="justify-end"
+                    onChange={(field: CoinField, value) =>
+                      update({ [field]: value })
+                    }
+                  />
+                </div>
                 {isDm ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="xp">XP</Label>
-                        <Input
-                          id="xp"
-                          type="number"
-                          min={0}
-                          defaultValue={character.xp}
-                          onBlur={(e) => {
-                            const value = Number(e.target.value);
-                            if (!Number.isNaN(value) && value >= 0) {
-                              update({ xp: value });
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="level">Level</Label>
-                        <Input
-                          id="level"
-                          type="number"
-                          min={1}
-                          defaultValue={character.level}
-                          onBlur={(e) => {
-                            const value = Number(e.target.value);
-                            if (!Number.isNaN(value) && value >= 1) {
-                              update({ level: value });
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="owner">Owner</Label>
-                      <select
-                        id="owner"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-                        defaultValue={character.owner_id ?? ""}
-                        onChange={(e) =>
-                          update({ owner_id: e.target.value || null })
-                        }
-                      >
-                        <option value="">Unowned</option>
-                        {profiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.display_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
+                  <div className="space-y-1">
+                    <Label htmlFor="owner">Owner</Label>
+                    <select
+                      id="owner"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                      defaultValue={character.owner_id ?? ""}
+                      onChange={(e) =>
+                        update({ owner_id: e.target.value || null })
+                      }
+                    >
+                      <option value="">Unowned</option>
+                      {profiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 ) : null}
                 <Separator />
                 <p className="text-xs text-muted-foreground">
@@ -323,12 +324,6 @@ export function CharacterSheet({
               </CardContent>
             </Card>
           </div>
-
-          <StatsEditor
-            stats={(character.stats ?? {}) as Record<string, unknown>}
-            onChange={(stats) => update({ stats })}
-            disabled={pending}
-          />
 
           <Card>
             <CardHeader>
@@ -404,9 +399,13 @@ export function CharacterSheet({
           <InventoryPanel
             characterId={character.id}
             inventory={inventory}
+            gold={character.gold_pieces}
+            silver={character.silver_pieces}
+            bronze={character.bronze_pieces}
             transferTargets={transferTargets}
             isDm={isDm}
             pending={pending}
+            onCoinChange={(field, value) => update({ [field]: value })}
             onAdjust={(itemName, delta) =>
               run(() =>
                 adjustInventory({
@@ -420,94 +419,5 @@ export function CharacterSheet({
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-function StatsEditor({
-  stats,
-  onChange,
-  disabled,
-}: {
-  stats: Record<string, unknown>;
-  onChange: (stats: Record<string, unknown>) => void;
-  disabled: boolean;
-}) {
-  const [entries, setEntries] = useState<Array<[string, string]>>(() =>
-    Object.entries(stats).map(([k, v]) => [k, String(v)]),
-  );
-
-  function commit(next: Array<[string, string]>) {
-    setEntries(next);
-    const cleaned: Record<string, unknown> = {};
-    for (const [key, value] of next) {
-      const trimmedKey = key.trim();
-      if (!trimmedKey) continue;
-      const num = Number(value);
-      cleaned[trimmedKey] = value !== "" && !Number.isNaN(num) ? num : value;
-    }
-    onChange(cleaned);
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Stats</CardTitle>
-        <CardDescription>
-          Custom stat block for this homebrew system (numbers or text)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No stats yet.</p>
-        ) : (
-          entries.map(([key, value], index) => (
-            <div key={index} className="flex items-center gap-2">
-              <Input
-                placeholder="Stat name"
-                value={key}
-                disabled={disabled}
-                onChange={(e) => {
-                  const next = [...entries];
-                  next[index] = [e.target.value, value];
-                  setEntries(next);
-                }}
-                onBlur={() => commit(entries)}
-                className="w-40"
-              />
-              <Input
-                placeholder="Value"
-                value={value}
-                disabled={disabled}
-                onChange={(e) => {
-                  const next = [...entries];
-                  next[index] = [key, e.target.value];
-                  setEntries(next);
-                }}
-                onBlur={() => commit(entries)}
-                className="w-32"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={disabled}
-                onClick={() =>
-                  commit(entries.filter((_, i) => i !== index))
-                }
-              >
-                Remove
-              </Button>
-            </div>
-          ))
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => setEntries([...entries, ["", ""]])}
-        >
-          Add stat
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
