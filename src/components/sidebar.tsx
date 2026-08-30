@@ -20,17 +20,21 @@ type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  dmOnly?: boolean;
 };
 
-const NAV_ITEMS: NavItem[] = [
+const PLAYER_NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/characters", label: "My Characters", icon: Users },
-  { href: "/party", label: "Party", icon: Users, dmOnly: true },
-  { href: "/bestiary", label: "Bestiary", icon: Swords, dmOnly: true },
-  { href: "/trees", label: "Skill Trees", icon: Network, dmOnly: true },
-  { href: "/items", label: "Items", icon: Coins, dmOnly: true },
-  { href: "/events", label: "Game Events", icon: ClipboardList, dmOnly: true },
+  { href: "/sessions", label: "Sessions", icon: ScrollText },
+];
+
+const DM_NAV: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/party", label: "Party", icon: Users },
+  { href: "/bestiary", label: "Bestiary", icon: Swords },
+  { href: "/trees", label: "Skill Trees", icon: Network },
+  { href: "/items", label: "Items", icon: Coins },
+  { href: "/events", label: "Game Events", icon: ClipboardList },
   { href: "/sessions", label: "Sessions", icon: ScrollText },
 ];
 
@@ -42,7 +46,7 @@ export function Sidebar({
   role: string;
 }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => !item.dmOnly || role === "dm");
+  const items = role === "dm" ? DM_NAV : PLAYER_NAV;
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">

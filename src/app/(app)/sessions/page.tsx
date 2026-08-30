@@ -17,7 +17,9 @@ export default async function SessionsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Sessions</h1>
           <p className="text-sm text-muted-foreground">
-            The campaign log — recaps, loot, and memorable moments
+            {session.isDm
+              ? "Manage the campaign log — recaps, loot, and memorable moments"
+              : "Session recaps from the campaign"}
           </p>
         </div>
         {session.isDm ? <SessionNoteDialog /> : null}

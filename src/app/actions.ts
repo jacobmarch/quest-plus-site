@@ -63,6 +63,13 @@ export async function createCharacter(input: {
 }): Promise<ActionResult & { id?: string }> {
   try {
     const session = await requireSession();
+    if (input.kind === "pc") {
+      if (session.isDm) {
+        throw new Error("Players create their own characters");
+      }
+    } else {
+      await requireDm();
+    }
     const supabase = await createClient();
 
     const insert = {
@@ -88,6 +95,7 @@ export async function createCharacter(input: {
       if (skillError) throw new Error(skillError.message);
     }
     revalidatePath("/characters");
+    revalidatePath("/party");
     revalidatePath("/bestiary");
     revalidatePath("/");
     return { ok: true, id: data.id };
@@ -127,6 +135,7 @@ export async function updateCharacterFields(
     }
 
     revalidatePath(`/characters/${id}`);
+    revalidatePath("/party");
     revalidatePath("/bestiary");
     revalidatePath("/");
     return { ok: true };
@@ -142,6 +151,7 @@ export async function deleteCharacter(id: string): Promise<ActionResult> {
     const { error } = await supabase.from("characters").delete().eq("id", id);
     if (error) throw new Error(error.message);
     revalidatePath("/characters");
+    revalidatePath("/party");
     revalidatePath("/bestiary");
     revalidatePath("/");
     return { ok: true };
@@ -169,6 +179,7 @@ export async function levelUpCharacter(id: string): Promise<ActionResult> {
     if (error) throw new Error(error.message);
 
     revalidatePath(`/characters/${id}`);
+    revalidatePath("/party");
     revalidatePath("/bestiary");
     revalidatePath("/");
     return { ok: true };

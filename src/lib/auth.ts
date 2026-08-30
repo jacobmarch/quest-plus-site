@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRow } from "@/lib/database.types";
 
@@ -45,6 +46,14 @@ export async function requireDm(): Promise<SessionContext> {
   const session = await requireSession();
   if (!session.isDm) {
     throw new Error("Only the DM can do that");
+  }
+  return session;
+}
+
+export async function requirePlayer(): Promise<SessionContext> {
+  const session = await requireSession();
+  if (session.isDm) {
+    redirect("/party");
   }
   return session;
 }

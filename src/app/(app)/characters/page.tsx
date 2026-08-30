@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireSession } from "@/lib/auth";
+import { requirePlayer } from "@/lib/auth";
 import { CreateCharacterDialog } from "@/components/create-character-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,7 +12,7 @@ import {
 } from "@/components/ui/card";
 
 export default async function CharactersPage() {
-  const session = await requireSession();
+  const session = await requirePlayer();
   const supabase = await createClient();
 
   const [charactersRes, classesRes] = await Promise.all([
@@ -21,6 +20,7 @@ export default async function CharactersPage() {
       .from("characters")
       .select("id, name, kind, level, current_hp, max_hp, is_dead")
       .eq("kind", "pc")
+      .eq("owner_id", session.user.id)
       .order("name"),
     supabase.from("classes").select("id, name").order("name"),
   ]);

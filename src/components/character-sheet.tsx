@@ -94,6 +94,12 @@ export function CharacterSheet({
   const update = (fields: Record<string, unknown>) =>
     run(() => updateCharacterFields(character.id, fields));
 
+  const listHref = isDm
+    ? character.kind === "enemy"
+      ? "/bestiary"
+      : "/party"
+    : "/characters";
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -125,7 +131,7 @@ export function CharacterSheet({
           <Button
             variant="outline"
             disabled={pending}
-            onClick={() => router.push("/characters")}
+            onClick={() => router.push(listHref)}
           >
             Back
           </Button>
@@ -379,7 +385,7 @@ export function CharacterSheet({
                         toast.error(result.error);
                         return;
                       }
-                      router.push("/characters");
+                      router.push(listHref);
                     });
                   }
                 }}

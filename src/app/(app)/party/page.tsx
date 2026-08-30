@@ -20,14 +20,15 @@ export default async function PartyPage() {
       .select("id, name, kind, level, current_hp, max_hp, is_dead, owner_id")
       .eq("kind", "pc")
       .order("name"),
-    supabase.from("profiles").select("id, display_name").order("display_name"),
+    supabase.from("profiles").select("id, display_name, role").order("display_name"),
   ]);
 
   const characters = charactersRes.data ?? [];
   const profiles = profilesRes.data ?? [];
   const nameById = new Map(profiles.map((p) => [p.id, p.display_name]));
   const unowned = profiles.filter(
-    (p) => !characters.some((c) => c.owner_id === p.id),
+    (p) =>
+      p.role === "player" && !characters.some((c) => c.owner_id === p.id),
   );
 
   return (
@@ -35,14 +36,16 @@ export default async function PartyPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Party</h1>
         <p className="text-sm text-muted-foreground">
-          Every player character and who owns it
+          Every player character and who owns it. Players create their own
+          sheets; assign an owner on the character sheet.
         </p>
       </div>
 
       {characters.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No player characters yet.
+            No player characters yet. Players create their own sheets; assign
+            an owner on the sheet once they exist.
           </CardContent>
         </Card>
       ) : (
