@@ -186,7 +186,9 @@ export type Database = {
         Row: {
           character_id: string;
           created_at: string;
+          damage: string;
           id: string;
+          effects: Json;
           item_id: string | null;
           item_name: string;
           quantity: number;
@@ -194,7 +196,9 @@ export type Database = {
         Insert: {
           character_id: string;
           created_at?: string;
+          damage?: string;
           id?: string;
+          effects?: Json;
           item_id?: string | null;
           item_name: string;
           quantity?: number;
@@ -202,7 +206,9 @@ export type Database = {
         Update: {
           character_id?: string;
           created_at?: string;
+          damage?: string;
           id?: string;
+          effects?: Json;
           item_id?: string | null;
           item_name?: string;
           quantity?: number;
@@ -227,19 +233,25 @@ export type Database = {
       items: {
         Row: {
           created_at: string;
+          damage: string;
           description: string;
+          effects: Json;
           id: string;
           name: string;
         };
         Insert: {
           created_at?: string;
+          damage?: string;
           description?: string;
+          effects?: Json;
           id?: string;
           name: string;
         };
         Update: {
           created_at?: string;
+          damage?: string;
           description?: string;
+          effects?: Json;
           id?: string;
           name?: string;
         };
@@ -336,11 +348,23 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      inventory_visible: {
+        Row: {
+          character_id: string;
+          created_at: string;
+          damage: string;
+          effects: Json;
+          id: string;
+          item_id: string | null;
+          item_name: string;
+          quantity: number;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       adjust_inventory: {
-        Args: { p_character: string; p_delta: number; p_item: string };
+        Args: { p_character: string; p_delta: number; p_item_name: string };
         Returns: undefined;
       };
       dm_update_character: {
@@ -361,6 +385,15 @@ export type Database = {
           p_item_name: string;
           p_quantity: number;
           p_to_character: string;
+        };
+        Returns: undefined;
+      };
+      update_inventory_details: {
+        Args: {
+          p_character: string;
+          p_damage: string;
+          p_effects: Json;
+          p_item_name: string;
         };
         Returns: undefined;
       };

@@ -1,9 +1,22 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { adjustInventory, transferInventory } from "@/app/actions";
+import {
+  adjustInventory,
+  transferInventory,
+  updateInventoryDetails,
+} from "@/app/actions";
 import type { CharacterRow, InventoryRow } from "@/lib/database.types";
+import {
+  formatItemSummary,
+  parseItemEffects,
+  type ItemEffect,
+} from "@/lib/items";
+import {
+  EffectList,
+  emptyDraftEffect,
+} from "@/components/item-effects-fields";
 import { CoinPurse, type CoinField } from "@/components/coin-purse";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +42,9 @@ export function InventoryPanel({
   onAdjust,
 }: {
   characterId: string;
-  inventory: Array<Pick<InventoryRow, "id" | "item_name" | "quantity">>;
+  inventory: Array<
+    Pick<InventoryRow, "id" | "item_name" | "quantity" | "damage" | "effects">
+  >;
   gold: number;
   silver: number;
   bronze: number;
@@ -69,7 +84,8 @@ export function InventoryPanel({
         <CardHeader>
           <CardTitle>Carried items</CardTitle>
           <CardDescription>
-            Adjust quantities on this sheet; DMs can also transfer items below
+            Adjust quantities and effects on this sheet; DMs can reveal hidden
+            effects and transfer items below
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -80,33 +96,14 @@ export function InventoryPanel({
           ) : (
             <ul className="divide-y">
               {rows.map((row) => (
-                <li
+                <InventoryItemEditor
                   key={row.id}
-                  className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
-                >
-                  <p className="truncate font-medium">{row.item_name}</p>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => onAdjust(row.item_name, -1)}
-                    >
-                      −
-                    </Button>
-                    <span className="w-10 text-center tabular-nums">
-                      ×{row.quantity}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => onAdjust(row.item_name, 1)}
-                    >
-                      +
-                    </Button>
-                  </div>
-                </li>
+                  characterId={characterId}
+                  row={row}
+                  isDm={isDm}
+                  pending={pending}
+                  onAdjust={onAdjust}
+                />
               ))}
             </ul>
           )}
@@ -123,6 +120,180 @@ export function InventoryPanel({
         />
       ) : null}
     </div>
+  );
+}
+
+function InventoryItemEditor({
+  characterId,
+  row,
+  isDm,
+  pending,
+  onAdjust,
+}: {
+  characterId: string;
+  row: Pick<
+    InventoryRow,
+    "id" | "item_name" | "quantity" | "damage" | "effects"
+  >;
+  isDm: boolean;
+  pending: boolean;
+  onAdjust: (itemName: string, delta: number) => void;
+}) {
+  const [damage, setDamage] = useState(row.damage);
+  const [effects, setEffects] = useState<ItemEffect[]>(
+    parseItemEffects(row.effects),
+  );
+  const [showEditor, setShowEditor] = useState(false);
+  const [draft, setDraft] = useState<ItemEffect>(emptyDraftEffect);
+  const [saving, startTransition] = useTransition();
+
+  function save(nextEffects = effects, nextDamage = damage) {
+    const payloadEffects = isDm
+      ? nextEffects
+      : nextEffects.filter((effect) => !effect.hidden);
+    if (
+      nextDamage === row.damage &&
+      JSON.stringify(nextEffects) === JSON.stringify(parseItemEffects(row.effects))
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateInventoryDetails({
+        characterId,
+        itemName: row.item_name,
+        damage: nextDamage,
+        effects: payloadEffects,
+      });
+      if (!result.ok) toast.error(result.error);
+      else toast.success("Item details saved");
+    });
+  }
+
+  function addEffect() {
+    if (!draft.name.trim()) return;
+    const hidden = isDm && draft.hidden;
+    const nextEffects = [
+      ...effects,
+      {
+        ...draft,
+        name: draft.name.trim(),
+        description: draft.description.trim(),
+        impact: draft.impact.trim(),
+        hidden,
+        revealed: !hidden,
+      },
+    ];
+    setEffects(nextEffects);
+    setDraft(emptyDraftEffect());
+    save(nextEffects);
+  }
+
+  function removeEffect(index: number) {
+    const target = effects[index];
+    if (!isDm && target?.hidden) return;
+    const nextEffects = effects.filter((_, i) => i !== index);
+    setEffects(nextEffects);
+    save(nextEffects);
+  }
+
+  const summary = formatItemSummary({ damage, effects, isDm });
+
+  return (
+    <li className="py-3 first:pt-0 last:pb-0">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{row.item_name}</p>
+          {summary ? (
+            <p className="text-sm text-muted-foreground">{summary}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No damage or effects noted
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => onAdjust(row.item_name, -1)}
+          >
+            −
+          </Button>
+          <span className="w-10 text-center tabular-nums">×{row.quantity}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => onAdjust(row.item_name, 1)}
+          >
+            +
+          </Button>
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-1 px-0"
+        onClick={() => setShowEditor((open) => !open)}
+      >
+        {showEditor ? "Hide details" : "Edit details"}
+      </Button>
+      {showEditor ? (
+        <div className="mt-2 grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor={`${row.id}-damage`}>Damage</Label>
+            <Input
+              id={`${row.id}-damage`}
+              value={damage}
+              placeholder="e.g. 1d6"
+              maxLength={80}
+              className="max-w-40"
+              onChange={(event) => setDamage(event.target.value)}
+              onBlur={() => save()}
+              disabled={saving}
+            />
+          </div>
+          <EffectList
+            effects={effects}
+            isDm={isDm}
+            idPrefix={row.id}
+            draft={draft}
+            onDraftChange={setDraft}
+            onAdd={addEffect}
+            onRemove={removeEffect}
+            onToggleHidden={
+              isDm
+                ? (index, hidden) => {
+                    const nextEffects = effects.map((effect, i) =>
+                      i === index
+                        ? {
+                            ...effect,
+                            hidden,
+                            revealed: hidden ? effect.revealed : true,
+                          }
+                        : effect,
+                    );
+                    setEffects(nextEffects);
+                    save(nextEffects);
+                  }
+                : undefined
+            }
+            onToggleRevealed={
+              isDm
+                ? (index, revealed) => {
+                    const nextEffects = effects.map((effect, i) =>
+                      i === index ? { ...effect, revealed } : effect,
+                    );
+                    setEffects(nextEffects);
+                    save(nextEffects);
+                  }
+                : undefined
+            }
+          />
+        </div>
+      ) : null}
+    </li>
   );
 }
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireDm, requireSession } from "@/lib/auth";
+import { sanitizeDamage, sanitizeEffects } from "@/lib/items";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -342,11 +343,32 @@ export async function upsertItem(input: {
   id?: string;
   name: string;
   description: string;
+  damage: string;
+  effects: Array<{
+    name: string;
+    description?: string;
+    impact?: string;
+    hidden?: boolean;
+  }>;
 }): Promise<ActionResult> {
   try {
     await requireDm();
+    const damage = sanitizeDamage(input.damage);
+    const effects = sanitizeEffects(input.effects).map(
+      ({ name, description, impact, hidden }) => ({
+        name,
+        description,
+        impact,
+        hidden,
+      }),
+    );
     const supabase = await createClient();
-    const row = { name: input.name, description: input.description };
+    const row = {
+      name: input.name,
+      description: input.description,
+      damage,
+      effects,
+    };
     const query = input.id
       ? supabase.from("items").update(row).eq("id", input.id)
       : supabase.from("items").insert(row);
@@ -424,6 +446,37 @@ export async function transferInventory(input: {
     if (error) throw new Error(error.message);
     revalidatePath(`/characters/${input.fromCharacterId}`);
     revalidatePath(`/characters/${input.toCharacterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function updateInventoryDetails(input: {
+  characterId: string;
+  itemName: string;
+  damage: string;
+  effects: Array<{
+    name: string;
+    description?: string;
+    impact?: string;
+    hidden?: boolean;
+    revealed?: boolean;
+  }>;
+}): Promise<ActionResult> {
+  try {
+    await requireSession();
+    const damage = sanitizeDamage(input.damage);
+    const effects = sanitizeEffects(input.effects);
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("update_inventory_details", {
+      p_character: input.characterId,
+      p_item_name: input.itemName,
+      p_damage: damage,
+      p_effects: effects,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/characters/${input.characterId}`);
     return { ok: true };
   } catch (err) {
     return toError(err);

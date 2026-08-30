@@ -31,8 +31,8 @@ export default async function CharacterPage({
       supabase.from("skills").select("*").order("name"),
       supabase.from("character_skills").select("skill_id").eq("character_id", id),
       supabase
-        .from("inventory")
-        .select("id, item_name, quantity")
+        .from("inventory_visible")
+        .select("id, item_name, quantity, damage, effects")
         .eq("character_id", id),
       supabase.from("profiles").select("id, display_name"),
       session.isDm

@@ -54,7 +54,16 @@ export function CharacterSheet({
   cls: ClassRow | null;
   skills: SkillRow[];
   learned: LearnedRow[];
-  inventory: Array<Pick<InventoryRow, "id" | "item_name" | "quantity">>;
+  inventory: Array<
+    Pick<
+      InventoryRow,
+      | "id"
+      | "item_name"
+      | "quantity"
+      | "damage"
+      | "effects"
+    >
+  >;
   profiles: Array<Pick<ProfileRow, "id" | "display_name">>;
   transferTargets: Array<Pick<CharacterRow, "id" | "name">>;
   isDm: boolean;

@@ -15,7 +15,8 @@ export default async function ItemsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Item Catalog</h1>
         <p className="text-sm text-muted-foreground">
-          Define items once, then grant them to any character sheet
+          Define items once, then grant them to any character sheet. Each
+          effect can be public or hidden until you reveal it on a sheet.
         </p>
       </div>
       <ItemsManager items={items ?? []} />
