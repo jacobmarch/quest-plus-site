@@ -18,11 +18,16 @@ export function computeSkillPoints(
   learned: Array<Pick<SkillRow, "cost" | "is_default">>,
 ): SkillPointsSummary {
   const perLevel = cls?.points_per_level ?? 0;
-  const total = (character.level ?? 0) * perLevel;
-  const spent = learned.reduce(
-    (sum, s) => sum + (s.is_default ? 0 : Number(s.cost)),
-    0,
-  );
+  // Level 1 is the starting level; points accrue from 2 onward (n - 1).
+  const total = Math.max(0, (character.level ?? 1) - 1) * perLevel;
+  const spentRaw = learned.reduce((sum, s) => {
+    if (s.is_default) return sum;
+    const cost = Number(s.cost);
+    return sum + (Number.isFinite(cost) && cost > 0 ? cost : 0);
+  }, 0);
+  // Never report negative points; extra spends from the old budget stay unlocked
+  // but cannot drive available below zero.
+  const spent = Math.min(Math.max(0, spentRaw), total);
   return { total, spent, available: total - spent };
 }
 

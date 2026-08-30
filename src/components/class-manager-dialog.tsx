@@ -52,7 +52,8 @@ export function ClassManagerDialog() {
         <DialogHeader>
           <DialogTitle>Create class</DialogTitle>
           <DialogDescription>
-            Classes own skill trees and set how many points a level grants.
+            Classes own skill trees and set how many points each level after
+            the first grants.
           </DialogDescription>
         </DialogHeader>
         <form action={handleSubmit} className="space-y-4">

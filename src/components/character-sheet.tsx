@@ -75,11 +75,13 @@ export function CharacterSheet({
   const points = computeSkillPoints(
     cls,
     character,
-    learned.map((l) => ({
-      cost: skills.find((s) => s.id === l.skill_id)?.cost ?? 1,
-      is_default:
-        skills.find((s) => s.id === l.skill_id)?.is_default ?? false,
-    })),
+    learned.map((l) => {
+      const skill = skills.find((s) => s.id === l.skill_id);
+      return {
+        cost: skill?.cost ?? 0,
+        is_default: skill?.is_default ?? false,
+      };
+    }),
   );
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {

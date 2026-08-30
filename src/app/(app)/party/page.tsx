@@ -47,7 +47,7 @@ export default async function PartyPage() {
         </Card>
       ) : (
         <Card>
-          <CardContent className="pt-6">
+          <CardContent>
             <ul className="divide-y">
               {characters.map((character) => (
                 <li

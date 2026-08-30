@@ -53,7 +53,7 @@ export default async function TreesPage() {
                   <CardTitle>{cls.name}</CardTitle>
                   <CardDescription>
                     {skillCounts.get(cls.id) ?? 0} skill(s) ·{" "}
-                    {cls.points_per_level} point(s) per level
+                    {cls.points_per_level} point(s) per level after 1
                   </CardDescription>
                 </CardHeader>
                 {cls.description ? (
