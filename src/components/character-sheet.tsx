@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   adjustInventory,
@@ -39,6 +39,13 @@ import { InventoryPanel } from "@/components/inventory-panel";
 
 type LearnedRow = { skill_id: string };
 
+const SHEET_TABS = ["overview", "skills", "inventory"] as const;
+type SheetTab = (typeof SHEET_TABS)[number];
+
+function isSheetTab(value: string | null): value is SheetTab {
+  return SHEET_TABS.includes(value as SheetTab);
+}
+
 export function CharacterSheet({
   character,
   cls,
@@ -70,7 +77,11 @@ export function CharacterSheet({
   currentUserId: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const tabParam = searchParams.get("tab");
+  const tab: SheetTab = isSheetTab(tabParam) ? tabParam : "overview";
 
   const points = computeSkillPoints(
     cls,
@@ -87,8 +98,20 @@ export function CharacterSheet({
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     startTransition(async () => {
       const result = await fn();
-      if (!result.ok && result.error) toast.error(result.error);
+      if (!result.ok && result.error) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
+  }
+
+  function setTab(next: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "overview") params.delete("tab");
+    else params.set("tab", next);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   const update = (fields: Record<string, unknown>) =>
@@ -138,7 +161,7 @@ export function CharacterSheet({
         </div>
       </div>
 
-      <Tabs defaultValue="overview">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="skills">

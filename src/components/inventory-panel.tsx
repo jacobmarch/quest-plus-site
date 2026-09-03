@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  adjustInventory,
   transferInventory,
   updateInventoryDetails,
 } from "@/app/actions";
@@ -110,7 +110,7 @@ export function InventoryPanel({
         </CardContent>
       </Card>
 
-      <AddItemForm characterId={characterId} />
+      <AddItemForm pending={pending} onAdd={onAdjust} />
 
       {isDm && transferTargets.length > 0 ? (
         <TransferForm
@@ -145,6 +145,7 @@ function InventoryItemEditor({
   );
   const [showEditor, setShowEditor] = useState(false);
   const [draft, setDraft] = useState<ItemEffect>(emptyDraftEffect);
+  const router = useRouter();
   const [saving, startTransition] = useTransition();
 
   function save(nextEffects = effects, nextDamage = damage) {
@@ -165,7 +166,10 @@ function InventoryItemEditor({
         effects: payloadEffects,
       });
       if (!result.ok) toast.error(result.error);
-      else toast.success("Item details saved");
+      else {
+        toast.success("Item details saved");
+        router.refresh();
+      }
     });
   }
 
@@ -298,29 +302,17 @@ function InventoryItemEditor({
 }
 
 function AddItemForm({
-  characterId,
+  pending,
+  onAdd,
 }: {
-  characterId: string;
+  pending: boolean;
+  onAdd: (itemName: string, quantity: number) => void;
 }) {
-  const [pending, startTransition] = useTransition();
-
   function handleSubmit(formData: FormData) {
     const itemName = String(formData.get("itemName") ?? "").trim();
     const quantity = Number(formData.get("quantity") ?? 1);
     if (!itemName || !Number.isInteger(quantity) || quantity < 1) return;
-
-    startTransition(async () => {
-      const result = await adjustInventory({
-        characterId,
-        itemName,
-        delta: quantity,
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Item added");
-    });
+    onAdd(itemName, quantity);
   }
 
   return (
@@ -375,6 +367,7 @@ function TransferForm({
   targets: Array<Pick<CharacterRow, "id" | "name">>;
   inventory: Array<Pick<InventoryRow, "item_name">>;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function handleSubmit(formData: FormData) {
@@ -395,6 +388,7 @@ function TransferForm({
         return;
       }
       toast.success("Item transferred");
+      router.refresh();
     });
   }
 

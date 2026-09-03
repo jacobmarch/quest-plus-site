@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteItem, upsertItem } from "@/app/actions";
 import type { ItemRow } from "@/lib/database.types";
@@ -21,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function ItemsManager({ items }: { items: ItemRow[] }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function persist(input: {
@@ -33,6 +35,7 @@ export function ItemsManager({ items }: { items: ItemRow[] }) {
     startTransition(async () => {
       const result = await upsertItem(input);
       if (!result.ok) toast.error(result.error);
+      else router.refresh();
     });
   }
 
@@ -60,6 +63,7 @@ export function ItemsManager({ items }: { items: ItemRow[] }) {
                       startTransition(async () => {
                         const result = await deleteItem(item.id);
                         if (!result.ok) toast.error(result.error);
+                        else router.refresh();
                       })
                     }
                   />

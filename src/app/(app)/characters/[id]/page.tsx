@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth";
 import { CharacterSheet } from "@/components/character-sheet";
@@ -30,10 +31,7 @@ export default async function CharacterPage({
         : Promise.resolve({ data: null }),
       supabase.from("skills").select("*").order("name"),
       supabase.from("character_skills").select("skill_id").eq("character_id", id),
-      supabase
-        .from("inventory_visible")
-        .select("id, item_name, quantity, damage, effects")
-        .eq("character_id", id),
+      supabase.rpc("list_inventory", { p_character: id }),
       supabase.from("profiles").select("id, display_name"),
       session.isDm
         ? supabase.from("characters").select("id, name").neq("id", id).order("name")
@@ -46,17 +44,23 @@ export default async function CharacterPage({
             .order("name"),
     ]);
 
+  if (inventoryRes.error) {
+    throw new Error(inventoryRes.error.message);
+  }
+
   return (
-    <CharacterSheet
-      character={character}
-      cls={clsRes.data}
-      skills={skillsRes.data ?? []}
-      learned={learnedRes.data ?? []}
-      inventory={inventoryRes.data ?? []}
-      profiles={profilesRes.data ?? []}
-      transferTargets={othersRes.data ?? []}
-      isDm={session.isDm}
-      currentUserId={session.user.id}
-    />
+    <Suspense>
+      <CharacterSheet
+        character={character}
+        cls={clsRes.data}
+        skills={skillsRes.data ?? []}
+        learned={learnedRes.data ?? []}
+        inventory={inventoryRes.data ?? []}
+        profiles={profilesRes.data ?? []}
+        transferTargets={othersRes.data ?? []}
+        isDm={session.isDm}
+        currentUserId={session.user.id}
+      />
+    </Suspense>
   );
 }

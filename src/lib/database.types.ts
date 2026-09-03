@@ -379,6 +379,32 @@ export type Database = {
         Args: { p_character: string; p_skill: string };
         Returns: undefined;
       };
+      list_inventory: {
+        Args: { p_character: string };
+        Returns: {
+          character_id: string;
+          created_at: string;
+          damage: string;
+          effects: Json;
+          id: string;
+          item_id: string | null;
+          item_name: string;
+          quantity: number;
+        }[];
+      };
+      list_visible_inventory: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          character_id: string;
+          created_at: string;
+          damage: string;
+          effects: Json;
+          id: string;
+          item_id: string | null;
+          item_name: string;
+          quantity: number;
+        }[];
+      };
       transfer_inventory: {
         Args: {
           p_from_character: string;
