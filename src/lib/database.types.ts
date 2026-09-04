@@ -257,6 +257,50 @@ export type Database = {
         };
         Relationships: [];
       };
+      rolls: {
+        Row: {
+          constant: number;
+          created_at: string;
+          expression: string;
+          faces: number[];
+          id: string;
+          is_private: boolean;
+          roller_display_name: string;
+          roller_id: string;
+          total: number;
+        };
+        Insert: {
+          constant: number;
+          created_at?: string;
+          expression: string;
+          faces: number[];
+          id?: string;
+          is_private?: boolean;
+          roller_display_name: string;
+          roller_id: string;
+          total: number;
+        };
+        Update: {
+          constant?: number;
+          created_at?: string;
+          expression?: string;
+          faces?: number[];
+          id?: string;
+          is_private?: boolean;
+          roller_display_name?: string;
+          roller_id?: string;
+          total?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rolls_roller_id_fkey";
+            columns: ["roller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -450,3 +494,4 @@ export type AuditEventRow = Database["public"]["Tables"]["audit_events"]["Row"];
 export type SessionNoteRow =
   Database["public"]["Tables"]["session_notes"]["Row"];
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+export type RollRow = Database["public"]["Tables"]["rolls"]["Row"];

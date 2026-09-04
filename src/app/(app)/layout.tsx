@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
+import { RollAlerts } from "@/components/roll-alerts";
 import { getSessionContext } from "@/lib/auth";
 
 export default async function AppLayout({
@@ -14,7 +15,9 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-svh">
+      <RollAlerts userId={session.user.id} />
       <Sidebar
+        userId={session.user.id}
         displayName={session.profile.display_name}
         role={session.profile.role}
       />

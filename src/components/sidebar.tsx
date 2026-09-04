@@ -6,6 +6,7 @@ import {
   BookOpen,
   ClipboardList,
   Coins,
+  Dices,
   LayoutDashboard,
   Network,
   ScrollText,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { signOut } from "@/app/actions";
 import { Button } from "@/components/ui/button";
+import { RollTrigger } from "@/components/roll-trigger";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -25,6 +27,7 @@ type NavItem = {
 const PLAYER_NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/characters", label: "My Characters", icon: Users },
+  { href: "/rolls", label: "Rolls", icon: Dices },
   { href: "/sessions", label: "Sessions", icon: ScrollText },
 ];
 
@@ -35,13 +38,16 @@ const DM_NAV: NavItem[] = [
   { href: "/trees", label: "Skill Trees", icon: Network },
   { href: "/items", label: "Items", icon: Coins },
   { href: "/events", label: "Game Events", icon: ClipboardList },
+  { href: "/rolls", label: "Rolls", icon: Dices },
   { href: "/sessions", label: "Sessions", icon: ScrollText },
 ];
 
 export function Sidebar({
+  userId,
   displayName,
   role,
 }: {
+  userId: string;
   displayName: string;
   role: string;
 }) {
@@ -49,12 +55,12 @@ export function Sidebar({
   const items = role === "dm" ? DM_NAV : PLAYER_NAV;
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+    <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <BookOpen className="size-5" />
         <span className="text-lg font-bold tracking-tight">Quest Plus</span>
       </div>
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => {
           const active =
             item.href === "/"
@@ -78,6 +84,7 @@ export function Sidebar({
           );
         })}
       </nav>
+      <RollTrigger userId={userId} displayName={displayName} />
       <div className="border-t p-3">
         <p className="truncate px-3 text-sm font-medium">{displayName}</p>
         <p className="px-3 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
