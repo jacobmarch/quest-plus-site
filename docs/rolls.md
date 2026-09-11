@@ -1,5 +1,7 @@
 # Rolls
 
+Feature spec and as-built notes. New feature specs belong in `docs/` (same template as `/to-spec`). Glossary: [`CONTEXT.md`](../CONTEXT.md).
+
 ## Problem Statement
 
 Players and the DM need to roll dice during play from the campaign app itself. They need a default of sharing the result with the whole campaign, and a way to keep a Roll between only that Player and the DM (or DM-only when the DM is rolling). They also need a lasting record of what was rolled so a result can be recounted later.
@@ -86,9 +88,7 @@ Anyone signed in can roll from a **Roll trigger** in the sidebar footer: one-cli
 - **Seam (one):** the Rolls write/read contract — creating a Roll (validation + stored breakdown + visibility flags) and listing/subscribing as a given viewer. UI chrome and toast rendering are not a second seam; they consume this contract. Do not add a separate test suite whose only job is parser internals if create/list already reject bad input and store faces.
 - A good test asserts externally visible behavior: which viewer can see which Roll, what is stored (expression, faces, constants, total), rejection of illegal expressions (no row), Public default, Private DM-only vs Player+DM, and that a subscriber only receives Rolls they may see.
 - Test the Rolls contract (create + visible list / Realtime payload as the viewer would get it). Do not test React structure, CSS, or that a particular button class exists.
-- Prior art: this repo has no automated test runner or existing test files. New tests should sit at this Rolls contract, in whatever first test harness the implementer introduces, rather than scattering UI tests.
-
-If this seam is wrong (for example you would rather treat only a pure expression function as the seam, or only RLS in the database), say so before implementation.
+- Prior art: Vitest (`npm test`) with [`src/lib/rolls.test.ts`](../src/lib/rolls.test.ts) covering parse/evaluate and `canViewerSeeRoll`. RLS on `rolls` is not executed in that harness; keep SQL visibility aligned with the helper. See [testing.md](testing.md).
 
 ## Out of Scope
 
@@ -105,4 +105,35 @@ If this seam is wrong (for example you would rather treat only a pure expression
 
 - Domain language lives in `CONTEXT.md`. Use **Player**, **DM**, **Roll**, **Public Roll**, **Private Roll**, **Roll trigger**, **Roll alert**, and **Roll log**.
 - Issue tracker and triage labels were not present in this repo (`docs/agents/issue-tracker.md` is missing). Run `/setup-matt-pocock-skills` if those files should exist before ticketing.
-- Next usual step after this spec is `/to-tickets` or implementation, not another grilling pass unless the seam is rejected.
+
+## As built
+
+Anyone signed in can roll from the sidebar. Results persist on `rolls` and show in the **Roll log**. **Public** is the default; **Private** is roller + DM (DM-only if the DM rolled). Rolls are not tied to character stats.
+
+### Write path
+
+[`RollTrigger`](../src/components/roll-trigger.tsx) (sidebar footer):
+
+1. Parse and evaluate in the browser (`evaluateDiceExpression` in [`src/lib/rolls.ts`](../src/lib/rolls.ts)). Invalid input → toast, no insert.
+2. Insert into `rolls` via the **browser** Supabase client (`roller_id` must equal `auth.uid()`).
+3. Local success toast via [`toastRoll`](../src/lib/roll-toast.ts).
+
+There is no Server Action and no server-side RNG. Faces and total in the row are whatever the client stored. RLS: insert own rows only.
+
+Presets are `1dS` for S ∈ {4, 6, 8, 10, 12, 20, 100}. Custom language: sums of `NdS` and integer constants (`2d6+3`, `1d20+2d6-1`). Caps: N ≥ 1, at most 100 dice, those sides only. Negative dice terms are rejected; subtract a constant instead. Advantage is out of band (roll twice).
+
+Stored fields: `roller_id`, `roller_display_name` (snapshot), `is_private`, `expression`, `faces[]`, `constant`, `total`, `created_at`. No delete/edit/expiry in app or schema policies beyond cascade on profile delete.
+
+### Visibility
+
+SQL policy `rolls_select_visible`: not private, or `roller_id = auth.uid()`, or `private.is_dm()`.
+
+Client helper `canViewerSeeRoll` matches that for tests. Other Players never see a Private Roll row, toast payload, or private marker for someone else’s hidden Roll.
+
+### Roll alerts
+
+[`RollAlerts`](../src/components/roll-alerts.tsx) in the `(app)` layout subscribes to `postgres_changes` INSERT on `public.rolls` (table is in `supabase_realtime`). RLS filters events. The roller skips the Realtime toast (`roller_id === userId`) because they already toasted locally. If Realtime is down, the row still exists; the log still loads on navigation.
+
+### Roll log
+
+`/rolls` selects visible rows, newest first, empty state in [`RollLog`](../src/components/roll-log.tsx). Game Events and Sessions are not used for dice history.

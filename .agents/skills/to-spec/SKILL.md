@@ -1,6 +1,6 @@
 ---
 name: to-spec
-description: "Turn the current conversation into a spec and publish it to the specs folder in the project: no interview, just synthesis of what you've already discussed."
+description: "Turn the current conversation into a spec and publish it to the docs folder in the project: no interview, just synthesis of what you've already discussed."
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Check with the user that these seams match their expectations.
 
-3. Write the spec using the template below, then publish it to the specs folder in the project.
+3. Write the spec using the template below, then publish it to `docs/<feature>.md` in the project. Do not use a separate `specs/` folder. If an as-built section already exists for that feature, keep it below the spec template headings.
 
 <spec-template>
 

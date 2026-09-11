@@ -8,8 +8,13 @@ session notes.
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui
 - Supabase (Postgres + Auth + Row Level Security)
-- React Flow (@xyflow/react) for interactive skill trees
+- Custom skill-tree editor (not React Flow)
 - Deploys to Vercel
+
+## Documentation
+
+- [docs/](docs/README.md) — architecture, domain docs, and feature specs
+- [CONTEXT.md](CONTEXT.md) — domain glossary (Player, DM, Roll, …)
 
 ## Getting started
 
