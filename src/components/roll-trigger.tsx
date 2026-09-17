@@ -37,7 +37,10 @@ export function RollTrigger({
       const supabase = createClient();
       const { data: userData } = await supabase.auth.getUser();
       const rollerId = userData.user?.id ?? userId;
+      // Use the same persisted ID for local and Realtime toast deduplication.
+      const rollId = crypto.randomUUID();
       const { error } = await supabase.from("rolls").insert({
+        id: rollId,
         roller_id: rollerId,
         roller_display_name: displayName,
         is_private: isPrivate,
@@ -51,6 +54,7 @@ export function RollTrigger({
         return;
       }
       toastRoll({
+        id: rollId,
         roller_display_name: displayName,
         is_private: isPrivate,
         ...evaluated.value,

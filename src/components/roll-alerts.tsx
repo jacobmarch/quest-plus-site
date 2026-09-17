@@ -50,7 +50,9 @@ export function RollAlerts({ userId }: { userId: string }) {
             const roll = payload.new as RollRow;
             // Refresh for our own events too (including rolls from another tab).
             refreshRolls();
-            if (roll.roller_id !== userId) toastRoll(roll);
+            // RLS already limits delivery to viewers allowed to see this roll.
+            // A shared toast ID prevents a second toast in the originating tab.
+            toastRoll(roll);
           },
         )
         .subscribe((status, error) => {

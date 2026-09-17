@@ -6,6 +6,7 @@ import type { RollRow } from "@/lib/database.types";
 
 export function toastRoll(roll: Pick<
   RollRow,
+  | "id"
   | "roller_display_name"
   | "is_private"
   | "expression"
@@ -16,6 +17,6 @@ export function toastRoll(roll: Pick<
   const vis = roll.is_private ? "Private" : "Public";
   toast(
     `${roll.roller_display_name} · ${vis} · ${roll.expression} → ${roll.total}`,
-    { description: formatRollBreakdown(roll) },
+    { id: `roll-${roll.id}`, description: formatRollBreakdown(roll) },
   );
 }

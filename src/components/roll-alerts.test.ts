@@ -89,12 +89,13 @@ describe("live roll updates", () => {
     expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
-  it("refreshes our own roll without duplicating the local toast", async () => {
+  it("also alerts same-account tabs and refreshes their history", async () => {
     await mount();
-    insert({ new: { ...publicRoll, roller_id: "me" } });
+    const ownRoll = { ...publicRoll, roller_id: "me" };
+    insert({ new: ownRoll });
     vi.advanceTimersByTime(100);
     expect(mocks.refresh).toHaveBeenCalledOnce();
-    expect(mocks.toastRoll).not.toHaveBeenCalled();
+    expect(mocks.toastRoll).toHaveBeenCalledWith(ownRoll);
   });
 
   it("coalesces bursts into one refresh while keeping all alerts", async () => {
