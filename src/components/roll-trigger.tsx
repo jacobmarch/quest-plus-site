@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ export function RollTrigger({
   userId: string;
   displayName: string;
 }) {
+  const router = useRouter();
   const [expression, setExpression] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [pending, setPending] = useState(false);
@@ -53,6 +55,8 @@ export function RollTrigger({
         is_private: isPrivate,
         ...evaluated.value,
       });
+      // Keep our log current even if the Realtime connection is unavailable.
+      router.refresh();
     } finally {
       setPending(false);
     }
