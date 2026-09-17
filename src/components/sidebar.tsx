@@ -8,6 +8,7 @@ import {
   Coins,
   Dices,
   LayoutDashboard,
+  Map,
   Network,
   ScrollText,
   Swords,
@@ -29,6 +30,7 @@ const PLAYER_NAV: NavItem[] = [
   { href: "/characters", label: "My Characters", icon: Users },
   { href: "/rolls", label: "Rolls", icon: Dices },
   { href: "/sessions", label: "Sessions", icon: ScrollText },
+  { href: "/maps", label: "Maps", icon: Map },
 ];
 
 const DM_NAV: NavItem[] = [
@@ -40,6 +42,7 @@ const DM_NAV: NavItem[] = [
   { href: "/events", label: "Game Events", icon: ClipboardList },
   { href: "/rolls", label: "Rolls", icon: Dices },
   { href: "/sessions", label: "Sessions", icon: ScrollText },
+  { href: "/maps", label: "Maps", icon: Map },
 ];
 
 export function Sidebar({

@@ -1,3 +1,5 @@
+export type MapRow = Database["public"]["Tables"]["maps"]["Row"];
+
 export type Json =
   | string
   | number
@@ -14,6 +16,43 @@ export type Database = {
   };
   public: {
     Tables: {
+      maps: {
+        Row: {
+          id: string;
+          name: string;
+          parent_id: string | null;
+          storage_path: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          parent_id?: string | null;
+          storage_path: string;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "maps_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "maps";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "maps_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       character_skills: {
         Row: {
           character_id: string;

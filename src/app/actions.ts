@@ -5,11 +5,83 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireDm, requireSession } from "@/lib/auth";
 import { sanitizeDamage, sanitizeEffects } from "@/lib/items";
+import { MAP_BUCKET, validateMapName, validMapStoragePath } from "@/lib/maps";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 function toError(err: unknown): ActionResult {
   return { ok: false, error: err instanceof Error ? err.message : String(err) };
+}
+
+// ---------------------------------------------------------------- maps
+
+export async function createMap(input: {
+  name: string;
+  parentId: string | null;
+  storagePath: string;
+}): Promise<ActionResult & { id?: string }> {
+  try {
+    const session = await requireDm();
+    const name = validateMapName(input.name);
+    if (!validMapStoragePath(input.storagePath, session.user.id)) {
+      throw new Error("Invalid map image path.");
+    }
+    const supabase = await createClient();
+    // Check the upload exists before creating a tree entry.
+    const { data: object, error: objectError } = await supabase.storage
+      .from(MAP_BUCKET).info(input.storagePath);
+    if (objectError || !object) throw new Error("Map image upload was not found.");
+    const { data, error } = await supabase.from("maps").insert({
+      name,
+      parent_id: input.parentId,
+      storage_path: input.storagePath,
+      created_by: session.user.id,
+    }).select("id").single();
+    if (error) throw new Error(error.message);
+    revalidatePath("/maps");
+    return { ok: true, id: data.id };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function renameMap(id: string, name: string): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase.from("maps")
+      .update({ name: validateMapName(name) }).eq("id", id).select("id").single();
+    if (error) throw new Error(error.message);
+    revalidatePath("/maps");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+export async function deleteMap(id: string): Promise<ActionResult & { warning?: string }> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    // Delete metadata first: the FK atomically rejects non-leaf deletion even
+    // if another DM adds a child concurrently. Storage refuses referenced files.
+    const { data, error } = await supabase.from("maps").delete()
+      .eq("id", id).select("storage_path").single();
+    if (error) throw new Error(error.code === "23503"
+      ? "Delete this map's submaps first." : error.message);
+    let warning: string | undefined;
+    try {
+      const { error: storageError } = await supabase.storage.from(MAP_BUCKET)
+        .remove([data.storage_path]);
+      if (storageError) throw storageError;
+    } catch {
+      warning = `Map removed, but its image could not be cleaned up. Ask the DM to remove the unused Storage object: ${data.storage_path}`;
+    }
+    revalidatePath("/maps");
+    return { ok: true, warning };
+  } catch (err) {
+    return toError(err);
+  }
 }
 
 // ---------------------------------------------------------------- auth
