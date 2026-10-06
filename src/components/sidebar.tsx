@@ -58,7 +58,7 @@ export function Sidebar({
   const items = role === "dm" ? DM_NAV : PLAYER_NAV;
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+    <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <BookOpen className="size-5" />
         <span className="text-lg font-bold tracking-tight">Quest Plus</span>
