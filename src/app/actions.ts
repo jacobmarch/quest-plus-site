@@ -367,6 +367,8 @@ export async function upsertSkill(input: {
   cost: number;
   prereqSkillIds: string[];
   isDefault: boolean;
+  /** Drafts sit in the DM's tray: hidden from players, no links. Omit to keep. */
+  isDraft?: boolean;
 }): Promise<ActionResult & { id?: string }> {
   try {
     await requireDm();
@@ -377,8 +379,9 @@ export async function upsertSkill(input: {
       name: input.name,
       description: input.description,
       cost: input.cost,
-      prereq_skill_ids: input.prereqSkillIds,
-      is_default: input.isDefault,
+      prereq_skill_ids: input.isDraft ? [] : input.prereqSkillIds,
+      is_default: input.isDraft ? false : input.isDefault,
+      ...(input.isDraft === undefined ? {} : { is_draft: input.isDraft }),
     };
 
     if (input.id) {
@@ -399,6 +402,28 @@ export async function upsertSkill(input: {
     if (error) throw new Error(error.message);
     revalidatePath(`/trees/${input.classId}`);
     return { ok: true, id: data.id };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+/** Moves a draft from the tray onto the tree, under a parent or as Tier 1. */
+export async function placeDraftSkill(
+  id: string,
+  classId: string,
+  parentId: string | null,
+): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("skills")
+      .update({ is_draft: false, prereq_skill_ids: parentId ? [parentId] : [] })
+      .eq("id", id)
+      .eq("class_id", classId);
+    if (error) throw new Error(error.message);
+    revalidatePath(`/trees/${classId}`);
+    return { ok: true };
   } catch (err) {
     return toError(err);
   }

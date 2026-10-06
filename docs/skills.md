@@ -10,13 +10,18 @@ Deleting a class sets characters’ `class_id` to null (`ON DELETE SET NULL`) an
 
 ## Skill definitions
 
-Table `skills`: `class_id`, `name`, `description`, `cost`, `prereq_skill_ids uuid[]`, `is_default`.
+Table `skills`: `class_id`, `name`, `description`, `cost`, `prereq_skill_ids uuid[]`, `is_default`, `is_draft`.
 
 - **Prerequisites:** same-class, acyclic. Enforced by `private.validate_skill_prereqs` on write.
 - **Starting skills:** `is_default`. Granted by `grant_default_skills` at character create. They do not consume the point budget. `unlock_skill` rejects unlocking them again.
+- **Drafts:** `is_draft`. Rough ideas in the DM's tray. RLS hides them from players; they have no prerequisites, cannot be starting skills, nothing may list them as a prerequisite, and `character_skills` rejects them. `placeDraftSkill` moves one onto the tree. Queries for sheets filter `is_draft = false` so the DM's own view matches players'.
 - Layout positions are derived in the client (`deriveTiers` in [`src/lib/skills.ts`](../src/lib/skills.ts)), not stored as x/y (those columns were removed after the initial schema).
 
-DM edits trees on `/trees/[classId]` with [`TreeEditor`](../src/components/tree-editor.tsx) and [`SkillTreeView`](../src/components/skill-tree-view.tsx): add nodes, toggle prereq links, set cost and starting flag.
+DM edits trees on `/trees/[classId]` with [`TreeEditor`](../src/components/tree-editor.tsx) and [`SkillTreeView`](../src/components/skill-tree-view.tsx):
+
+- **Drafts tray:** quick form (name, cost, one-line summary) adds drafts; drag a draft onto an ability to make it lead from that ability, or onto the Tier 1 bar. Click a draft to pick it up, then click its destination (touch-friendly).
+- **Grow handle:** the + on each card adds an ability that leads from it, typed inline (Enter saves and starts a sibling, Esc stops). Dragging the + onto another card toggles that link.
+- **Details panel:** clicking a card opens a side panel for the full description (first line is the card summary), cost, starting flag, prerequisites, move-to-drafts and delete. It autosaves.
 
 ## Point budget
 

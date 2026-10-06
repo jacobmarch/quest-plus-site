@@ -29,7 +29,7 @@ export default async function CharacterPage({
       character.class_id
         ? supabase.from("classes").select("*").eq("id", character.class_id).maybeSingle()
         : Promise.resolve({ data: null }),
-      supabase.from("skills").select("*").order("name"),
+      supabase.from("skills").select("*").eq("is_draft", false).order("name"),
       supabase.from("character_skills").select("skill_id").eq("character_id", id),
       supabase.rpc("list_inventory", { p_character: id }),
       supabase.from("profiles").select("id, display_name"),
