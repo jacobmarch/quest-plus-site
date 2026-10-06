@@ -787,6 +787,7 @@ function SkillDetailsPanel({
           <Textarea
             id="detailDescription"
             rows={12}
+            className="min-h-60"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={
