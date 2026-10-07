@@ -388,6 +388,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      skill_reveals: {
+        Row: {
+          character_id: string;
+          created_at: string;
+          skill_id: string;
+        };
+        Insert: {
+          character_id: string;
+          created_at?: string;
+          skill_id: string;
+        };
+        Update: {
+          character_id?: string;
+          created_at?: string;
+          skill_id?: string;
+        };
+        Relationships: [];
+      };
       skills: {
         Row: {
           class_id: string;
@@ -397,6 +415,7 @@ export type Database = {
           id: string;
           is_default: boolean;
           is_draft: boolean;
+          is_hidden: boolean;
           name: string;
           prereq_skill_ids: string[];
         };
@@ -408,6 +427,7 @@ export type Database = {
           id?: string;
           is_default?: boolean;
           is_draft?: boolean;
+          is_hidden?: boolean;
           name: string;
           prereq_skill_ids?: string[];
         };
@@ -419,6 +439,7 @@ export type Database = {
           id?: string;
           is_default?: boolean;
           is_draft?: boolean;
+          is_hidden?: boolean;
           name?: string;
           prereq_skill_ids?: string[];
         };
@@ -507,6 +528,10 @@ export type Database = {
           p_effects: Json;
           p_item_name: string;
         };
+        Returns: undefined;
+      };
+      reveal_skill: {
+        Args: { p_character: string; p_skill: string };
         Returns: undefined;
       };
       unlock_skill: {

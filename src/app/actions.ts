@@ -300,6 +300,47 @@ export async function lockSkill(
   }
 }
 
+/** Shows a hidden ability (and the hidden path above it) to one character. */
+export async function revealSkill(
+  characterId: string,
+  skillId: string,
+): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("reveal_skill", {
+      p_character: characterId,
+      p_skill: skillId,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/characters/${characterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+/** Takes back a reveal. Abilities the character already learned stay. */
+export async function unrevealSkill(
+  characterId: string,
+  skillId: string,
+): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("skill_reveals")
+      .delete()
+      .eq("character_id", characterId)
+      .eq("skill_id", skillId);
+    if (error) throw new Error(error.message);
+    revalidatePath(`/characters/${characterId}`);
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
 // ------------------------------------------------------------- classes
 
 export async function upsertClass(input: {
@@ -369,6 +410,8 @@ export async function upsertSkill(input: {
   isDefault: boolean;
   /** Drafts sit in the DM's tray: hidden from players, no links. Omit to keep. */
   isDraft?: boolean;
+  /** Hidden abilities stay off players' trees until revealed. Omit to keep. */
+  isHidden?: boolean;
 }): Promise<ActionResult & { id?: string }> {
   try {
     await requireDm();
@@ -382,6 +425,7 @@ export async function upsertSkill(input: {
       prereq_skill_ids: input.isDraft ? [] : input.prereqSkillIds,
       is_default: input.isDraft ? false : input.isDefault,
       ...(input.isDraft === undefined ? {} : { is_draft: input.isDraft }),
+      ...(input.isHidden === undefined ? {} : { is_hidden: input.isHidden }),
     };
 
     if (input.id) {
