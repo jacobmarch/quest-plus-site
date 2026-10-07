@@ -28,8 +28,8 @@ export default async function TreeDetailPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{cls.name} tree</h1>
           <p className="text-sm text-muted-foreground">
-            Drag nodes to arrange · drag between handles to link prerequisites
-            · select a node to edit details
+            Click + on an ability to add the next one · drag + onto another
+            ability to link or unlink · click an ability to write it up
           </p>
         </div>
         <DeleteClassButton classId={cls.id} />

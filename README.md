@@ -36,8 +36,8 @@ Environment variables:
 - The **first account to sign up becomes the DM**; everyone after is a player.
 - New signups require email confirmation (Supabase default). Confirming via
   the emailed link is required before signing in.
-- As the DM: create classes under **Skill Trees**, add skill nodes (drag to
-  arrange, drag between node handles to link prerequisites), define items
+- As the DM: create classes under **Skill Trees**, jot draft abilities and drag
+  them onto the tree, or click + on an ability to add the next one, define items
   under **Items**, then create enemies in the **Bestiary**.
 - Players: create a character, pick its class, and spend skill points on the
   Skills tab. Points available = level x points-per-level minus spent cost.

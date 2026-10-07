@@ -7,8 +7,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { SkillRow } from "@/lib/database.types";
 import { layoutSkillTree } from "@/lib/skills";
 import { Badge } from "@/components/ui/badge";
@@ -28,15 +29,29 @@ export function SkillTreeView({
   selectedId,
   editable = false,
   onSelect,
-  onTogglePrereq,
+  inlineEditId,
+  renderInlineEditor,
+  dropTargetId,
+  onGrow,
+  onLink,
+  pendingIds,
 }: {
   skills: SkillRow[];
   unlockedIds: Set<string>;
   selectedId?: string | null;
   editable?: boolean;
   onSelect?: (skillId: string | null) => void;
-  /** (childId, newParentId) — add or remove a prerequisite link */
-  onTogglePrereq?: (childId: string, parentId: string) => void;
+  /** Skill rendered with `renderInlineEditor` instead of a card (DM quick-add). */
+  inlineEditId?: string | null;
+  renderInlineEditor?: (skill: SkillRow) => ReactNode;
+  /** Card highlighted while something is dragged over it. */
+  dropTargetId?: string | null;
+  /** Click on a card's + handle: add a skill that leads from it. */
+  onGrow?: (parentId: string) => void;
+  /** Drag from a card's + handle onto another card. */
+  onLink?: (parentId: string, childId: string) => void;
+  /** Skills still saving: shown dimmed, not clickable. */
+  pendingIds?: Set<string>;
 }) {
   const learnedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -48,11 +63,6 @@ export function SkillTreeView({
 
   const tree = useMemo(() => layoutSkillTree(skills), [skills]);
   const columns = tree.columns;
-
-  const nameById = useMemo(
-    () => new Map(skills.map((s) => [s.id, s.name])),
-    [skills],
-  );
 
   // ----- connector geometry -------------------------------------------------
   // The SVG must cover the full tree *content* (not the visible scrollport).
@@ -127,28 +137,90 @@ export function SkillTreeView({
     return list;
   }, [skills, layout, unlockedIds]);
 
-  // ----- edit-mode link picking --------------------------------------------
-  const [pickingParentFor, setPickingParentFor] = useState<string | null>(
-    null,
-  );
+  // ----- edit-mode grow / link handle --------------------------------------
+  // Click the + to grow a new child; drag it onto another card to link.
+  const growDrag = useRef<{
+    fromId: string;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
+  const [linkLine, setLinkLine] = useState<{
+    fromId: string;
+    x: number;
+    y: number;
+    overId: string | null;
+  } | null>(null);
 
-  useEffect(() => {
-    if (!pickingParentFor) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPickingParentFor(null);
+  function skillIdAt(clientX: number, clientY: number): string | null {
+    const hit = document.elementFromPoint(clientX, clientY);
+    const card = hit?.closest<HTMLElement>("[data-skill-id]");
+    return card?.dataset.skillId ?? null;
+  }
+
+  function handleGrowPointerDown(
+    event: React.PointerEvent<HTMLButtonElement>,
+    fromId: string,
+  ) {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    growDrag.current = {
+      fromId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragging: false,
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pickingParentFor]);
+  }
 
-  function handleCardClick(skillId: string) {
-    if (editable && pickingParentFor && pickingParentFor !== skillId) {
-      onTogglePrereq?.(pickingParentFor, skillId);
-      setPickingParentFor(null);
+  function handleGrowPointerMove(event: React.PointerEvent<HTMLButtonElement>) {
+    const drag = growDrag.current;
+    const content = contentRef.current;
+    if (!drag || !content) return;
+    if (
+      !drag.dragging &&
+      Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6
+    ) {
       return;
     }
+    drag.dragging = true;
+    const origin = content.getBoundingClientRect();
+    const overId = skillIdAt(event.clientX, event.clientY);
+    setLinkLine({
+      fromId: drag.fromId,
+      x: event.clientX - origin.left,
+      y: event.clientY - origin.top,
+      overId: overId && overId !== drag.fromId ? overId : null,
+    });
+  }
+
+  function handleGrowPointerUp() {
+    const drag = growDrag.current;
+    growDrag.current = null;
+    const target = linkLine?.overId ?? null;
+    setLinkLine(null);
+    if (!drag) return;
+    if (!drag.dragging) onGrow?.(drag.fromId);
+    else if (target) onLink?.(drag.fromId, target);
+  }
+
+  function handleGrowPointerCancel() {
+    growDrag.current = null;
+    setLinkLine(null);
+  }
+
+  function handleCardClick(skillId: string) {
     onSelect?.(selectedId === skillId ? null : skillId);
   }
+
+  const linkLinePath = useMemo(() => {
+    if (!linkLine) return null;
+    const from = layout.rects.get(linkLine.fromId);
+    if (!from) return null;
+    const x1 = from.left + from.width;
+    const y1 = from.top + from.height / 2;
+    const mid = (x1 + linkLine.x) / 2;
+    return `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${linkLine.y}, ${linkLine.x} ${linkLine.y}`;
+  }, [linkLine, layout]);
 
   if (skills.length === 0) {
     return (
@@ -160,22 +232,6 @@ export function SkillTreeView({
 
   return (
     <div className="space-y-3">
-      {editable && pickingParentFor ? (
-        <div className="flex items-center justify-between rounded-md border border-primary/50 bg-primary/5 px-3 py-2 text-sm">
-          <span>
-            Pick the ability that leads to{" "}
-            <strong>{nameById.get(pickingParentFor)}</strong>
-          </span>
-          <button
-            type="button"
-            className="underline underline-offset-4"
-            onClick={() => setPickingParentFor(null)}
-          >
-            Cancel (Esc)
-          </button>
-        </div>
-      ) : null}
-
       <div className="overflow-x-auto pb-2">
         <div ref={contentRef} className="relative min-w-fit">
           <svg
@@ -199,6 +255,15 @@ export function SkillTreeView({
                 }
               />
             ))}
+            {linkLinePath ? (
+              <path
+                d={linkLinePath}
+                fill="none"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                className="stroke-primary"
+              />
+            ) : null}
           </svg>
 
           <div
@@ -232,6 +297,25 @@ export function SkillTreeView({
                     ? "available"
                     : "locked";
                 const isSelected = selectedId === skill.id;
+                if (inlineEditId === skill.id && renderInlineEditor) {
+                  return (
+                    <div
+                      key={skill.id}
+                      ref={(el) => {
+                        if (el) cardRefs.current.set(skill.id, el);
+                        else cardRefs.current.delete(skill.id);
+                      }}
+                      className="min-w-0"
+                      style={{ gridColumn: tier + 1, gridRow: skill.lane + 2 }}
+                    >
+                      {renderInlineEditor(skill)}
+                    </div>
+                  );
+                }
+                const isPending = pendingIds?.has(skill.id) ?? false;
+                const summary = editable
+                  ? skill.description.split("\n", 1)[0].trim()
+                  : "";
                 return (
                   <div
                     key={skill.id}
@@ -239,7 +323,7 @@ export function SkillTreeView({
                       if (el) cardRefs.current.set(skill.id, el);
                       else cardRefs.current.delete(skill.id);
                     }}
-                    className="min-w-0"
+                    className="relative min-w-0"
                     style={{
                       gridColumn: tier + 1,
                       gridRow: skill.lane + 2,
@@ -247,63 +331,56 @@ export function SkillTreeView({
                   >
                     <button
                       type="button"
+                      data-skill-id={isPending ? undefined : skill.id}
+                      disabled={isPending}
                       onClick={() => handleCardClick(skill.id)}
                       className={cn(
                         "w-full rounded-xl border-2 p-3 text-left shadow-sm transition-colors",
-                        STATE_CARD[state],
+                        STATE_CARD[editable ? "available" : state],
                         isSelected &&
                           "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                        (dropTargetId === skill.id ||
+                          linkLine?.overId === skill.id) &&
+                          "border-primary bg-primary/10",
+                        isPending && "opacity-60",
                       )}
                     >
-                      <p className="text-sm font-semibold leading-tight">
+                      <p className="truncate text-sm font-semibold leading-tight">
                         {skill.name}
+                        {editable && skill.is_default ? (
+                          <Badge variant="secondary" className="ml-1.5 align-middle text-[10px]">
+                            Start
+                          </Badge>
+                        ) : null}
                       </p>
-                      <p className="mt-1 text-xs opacity-80">
+                      <p className="mt-1 truncate text-xs opacity-80">
                         {Number(skill.cost)} pt
                         {Number(skill.cost) === 1 ? "" : "s"}
+                        {summary ? ` · ${summary}` : ""}
                       </p>
-                      {editable ? (
-                        <div className="mt-2 space-y-1">
-                          {skill.prereq_skill_ids.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {skill.prereq_skill_ids.map((parentId) => (
-                                <span
-                                  key={parentId}
-                                  className="inline-flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 text-[11px] font-medium text-foreground"
-                                  title={`Requires ${nameById.get(parentId) ?? "unknown"}`}
-                                >
-                                  ↑ {nameById.get(parentId) ?? "?"}
-                                  <X
-                                    className="size-3 cursor-pointer opacity-70 hover:opacity-100"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      onTogglePrereq?.(skill.id, parentId);
-                                    }}
-                                  />
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className="inline-flex items-center gap-1 rounded-md border border-dashed px-1.5 py-0.5 text-[11px] opacity-80 hover:opacity-100"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setPickingParentFor(skill.id);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.stopPropagation();
-                                setPickingParentFor(skill.id);
-                              }
-                            }}
-                          >
-                            <Plus className="size-3" /> link from prior tier
-                          </span>
-                        </div>
-                      ) : null}
                     </button>
+                    {editable && !isPending ? (
+                      <button
+                        type="button"
+                        aria-label={`Add an ability that leads from ${skill.name}`}
+                        title="Click to add the next ability · drag onto another ability to link or unlink"
+                        onPointerDown={(event) =>
+                          handleGrowPointerDown(event, skill.id)
+                        }
+                        onPointerMove={handleGrowPointerMove}
+                        onPointerUp={handleGrowPointerUp}
+                        onPointerCancel={handleGrowPointerCancel}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onGrow?.(skill.id);
+                          }
+                        }}
+                        className="absolute -right-3 top-1/2 z-10 grid size-6 -translate-y-1/2 touch-none place-items-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    ) : null}
                   </div>
                 );
               }),

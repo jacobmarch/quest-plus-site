@@ -215,3 +215,26 @@ export function layoutSkillTree(skills: SkillRow[]): SkillTreeLayout {
   const { ordered, tierOf } = orderSkillsByBranch(skills);
   return assignLanes(buildTierColumns(ordered, tierOf));
 }
+
+/**
+ * The skill plus every skill that (transitively) lists it as a prerequisite.
+ * Linking any of these as a prerequisite of `skillId` would create a cycle.
+ */
+export function collectDependents(
+  skills: Array<Pick<SkillRow, "id" | "prereq_skill_ids">>,
+  skillId: string,
+): Set<string> {
+  const out = new Set([skillId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const skill of skills) {
+      if (out.has(skill.id)) continue;
+      if (skill.prereq_skill_ids.some((id) => out.has(id))) {
+        out.add(skill.id);
+        grew = true;
+      }
+    }
+  }
+  return out;
+}

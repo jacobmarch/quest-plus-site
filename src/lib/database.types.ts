@@ -396,6 +396,7 @@ export type Database = {
           description: string;
           id: string;
           is_default: boolean;
+          is_draft: boolean;
           name: string;
           prereq_skill_ids: string[];
         };
@@ -406,6 +407,7 @@ export type Database = {
           description?: string;
           id?: string;
           is_default?: boolean;
+          is_draft?: boolean;
           name: string;
           prereq_skill_ids?: string[];
         };
@@ -416,6 +418,7 @@ export type Database = {
           description?: string;
           id?: string;
           is_default?: boolean;
+          is_draft?: boolean;
           name?: string;
           prereq_skill_ids?: string[];
         };

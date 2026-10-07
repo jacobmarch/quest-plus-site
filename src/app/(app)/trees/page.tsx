@@ -17,7 +17,7 @@ export default async function TreesPage() {
 
   const [classesRes, countsRes] = await Promise.all([
     supabase.from("classes").select("*").order("name"),
-    supabase.from("skills").select("id, class_id"),
+    supabase.from("skills").select("id, class_id").eq("is_draft", false),
   ]);
 
   const classes = classesRes.data ?? [];

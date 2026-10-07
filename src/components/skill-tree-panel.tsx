@@ -103,7 +103,7 @@ export function SkillTreePanel({
           </CardHeader>
           <CardContent className="space-y-3">
             {selected.description ? (
-              <p className="text-sm">{selected.description}</p>
+              <p className="text-sm whitespace-pre-line">{selected.description}</p>
             ) : null}
             {!prereqMet && !isUnlocked ? (
               <p className="text-sm text-destructive">
