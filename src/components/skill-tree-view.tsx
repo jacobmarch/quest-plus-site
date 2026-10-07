@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Plus } from "lucide-react";
+import { EyeOff, Plus } from "lucide-react";
 import type { SkillRow } from "@/lib/database.types";
 import { layoutSkillTree } from "@/lib/skills";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ const STATE_CARD: Record<string, string> = {
 export function SkillTreeView({
   skills,
   unlockedIds,
+  hiddenIds,
   selectedId,
   editable = false,
   onSelect,
@@ -38,6 +39,8 @@ export function SkillTreeView({
 }: {
   skills: SkillRow[];
   unlockedIds: Set<string>;
+  /** DM view: abilities players can't see yet, drawn dashed. */
+  hiddenIds?: Set<string>;
   selectedId?: string | null;
   editable?: boolean;
   onSelect?: (skillId: string | null) => void;
@@ -313,6 +316,7 @@ export function SkillTreeView({
                   );
                 }
                 const isPending = pendingIds?.has(skill.id) ?? false;
+                const isHidden = hiddenIds?.has(skill.id) ?? false;
                 const summary = editable
                   ? skill.description.split("\n", 1)[0].trim()
                   : "";
@@ -343,9 +347,20 @@ export function SkillTreeView({
                           linkLine?.overId === skill.id) &&
                           "border-primary bg-primary/10",
                         isPending && "opacity-60",
+                        isHidden && "border-dashed opacity-70",
                       )}
                     >
                       <p className="truncate text-sm font-semibold leading-tight">
+                        {isHidden ? (
+                          <EyeOff
+                            aria-label={
+                              skill.is_hidden
+                                ? "Hidden from players"
+                                : "Hidden: below a hidden ability"
+                            }
+                            className="mr-1.5 inline size-3.5 align-[-2px]"
+                          />
+                        ) : null}
                         {skill.name}
                         {editable && skill.is_default ? (
                           <Badge variant="secondary" className="ml-1.5 align-middle text-[10px]">

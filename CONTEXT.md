@@ -33,3 +33,7 @@ A short-lived notice, pushed live, that a new Roll the viewer is allowed to see 
 **Roll log**:
 Persisted history of Rolls a given viewer is allowed to see, shown on its own tab—not in the trigger chrome.
 _Avoid_: chat, session (this is not a live table or a recap note)
+
+**Hidden ability**:
+An ability the DM keeps off a character's skill tree, together with every ability that leads from it, until the DM reveals it to that character. Revealing is per character; learned abilities always stay visible.
+_Avoid_: secret skill, locked (locked means prerequisites are unmet)

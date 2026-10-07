@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { GripVertical, Pencil, X } from "lucide-react";
 import { deleteSkill, placeDraftSkill, upsertSkill } from "@/app/actions";
 import type { SkillRow } from "@/lib/database.types";
-import { collectDependents } from "@/lib/skills";
+import { collectDependents, collectHiddenSkillIds } from "@/lib/skills";
 import { SkillTreeView } from "@/components/skill-tree-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ function makeRow(
     prereq_skill_ids: [],
     is_default: false,
     is_draft: false,
+    is_hidden: false,
     created_at: new Date().toISOString(),
     ...fields,
   };
@@ -358,6 +359,7 @@ export function TreeEditor({
       <SkillTreeView
         skills={treeSkills}
         unlockedIds={new Set()}
+        hiddenIds={collectHiddenSkillIds(placed)}
         selectedId={selectedId}
         editable
         onSelect={handleTreeSelect}
@@ -647,15 +649,16 @@ function SkillDetailsPanel({
   const [description, setDescription] = useState(skill.description);
   const [cost, setCost] = useState(String(Number(skill.cost)));
   const [isDefault, setIsDefault] = useState(skill.is_default);
+  const [isHidden, setIsHidden] = useState(skill.is_hidden);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [, startTransition] = useTransition();
 
   // Latest values for the debounced save and the save-on-close flush.
-  const latest = useRef({ name, description, cost, isDefault });
+  const latest = useRef({ name, description, cost, isDefault, isHidden });
   const skillRef = useRef(skill);
   const deleted = useRef(false);
   useEffect(() => {
-    latest.current = { name, description, cost, isDefault };
+    latest.current = { name, description, cost, isDefault, isHidden };
     skillRef.current = skill;
   });
 
@@ -666,7 +669,8 @@ function SkillDetailsPanel({
       v.name.trim() !== s.name ||
       v.description !== s.description ||
       Math.max(0, Number(v.cost) || 0) !== Number(s.cost) ||
-      v.isDefault !== s.is_default
+      v.isDefault !== s.is_default ||
+      v.isHidden !== s.is_hidden
     );
   }, []);
 
@@ -686,6 +690,7 @@ function SkillDetailsPanel({
         prereqSkillIds: overrides?.prereqSkillIds ?? s.prereq_skill_ids,
         isDefault: v.isDefault,
         isDraft: overrides?.isDraft,
+        isHidden: v.isHidden,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -703,7 +708,7 @@ function SkillDetailsPanel({
     if (!name.trim() || !isDirty()) return;
     const timer = setTimeout(() => void save(), 700);
     return () => clearTimeout(timer);
-  }, [name, description, cost, isDefault, isDirty, save]);
+  }, [name, description, cost, isDefault, isHidden, isDirty, save]);
 
   // Flush anything unsaved when the panel closes or switches skill.
   useEffect(
@@ -734,6 +739,11 @@ function SkillDetailsPanel({
     )
     .sort((a, b) => a.name.localeCompare(b.name));
   const hasDependents = blocked.size > 1;
+  // Below a hidden ability, this one is hidden along with its branch.
+  const hiddenAbove =
+    !skill.is_draft &&
+    collectHiddenSkillIds(skills.filter((s) => !s.is_draft)).has(skill.id) &&
+    !skill.is_hidden;
 
   function setPrereqs(next: string[]) {
     startTransition(async () => {
@@ -810,6 +820,7 @@ function SkillDetailsPanel({
               <input
                 type="checkbox"
                 checked={isDefault}
+                disabled={isHidden}
                 onChange={(e) => setIsDefault(e.target.checked)}
                 className="size-4 accent-[var(--primary)]"
               />
@@ -820,6 +831,31 @@ function SkillDetailsPanel({
                 </span>
               </span>
             </label>
+
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={isHidden}
+                  disabled={isDefault}
+                  onChange={(e) => setIsHidden(e.target.checked)}
+                  className="size-4 accent-[var(--primary)]"
+                />
+                <span>
+                  Hidden from players
+                  <span className="ml-1 text-muted-foreground">
+                    (with everything that leads from it)
+                  </span>
+                </span>
+              </label>
+              <p className="pl-6 text-xs text-muted-foreground">
+                {isDefault
+                  ? "Starting skills can’t be hidden."
+                  : hiddenAbove
+                    ? "Already hidden: it sits below a hidden ability."
+                    : "Reveal it to a character from their sheet’s Skills tab when the story gets there."}
+              </p>
+            </div>
 
             <div className="space-y-1.5">
               <Label>Leads from</Label>

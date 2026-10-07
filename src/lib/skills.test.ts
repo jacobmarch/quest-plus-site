@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectDependents } from "@/lib/skills";
+import { collectDependents, collectHiddenSkillIds } from "@/lib/skills";
 
 const tree = [
   { id: "keen", prereq_skill_ids: [] },
@@ -20,5 +20,17 @@ describe("collectDependents", () => {
 
   it("is just the skill for a leaf", () => {
     expect([...collectDependents(tree, "volley")]).toEqual(["volley"]);
+  });
+});
+
+describe("collectHiddenSkillIds", () => {
+  const withHidden = tree.map((s) => ({ ...s, is_hidden: s.id === "mark" }));
+
+  it("hides a hidden ability and everything below it", () => {
+    expect([...collectHiddenSkillIds(withHidden)].sort()).toEqual(["mark", "pack", "volley"]);
+  });
+
+  it("opens the branch once the ability is revealed or learned", () => {
+    expect([...collectHiddenSkillIds(withHidden, new Set(["mark"]))]).toEqual([]);
   });
 });

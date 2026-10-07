@@ -238,3 +238,31 @@ export function collectDependents(
   }
   return out;
 }
+
+/**
+ * Abilities still hidden from a character: marked hidden and not opened to
+ * them, or sitting anywhere below such an ability. `openIds` holds what the
+ * DM revealed to the character plus what it has learned. Mirrors
+ * `private.skill_visible_to_character` in the database.
+ */
+export function collectHiddenSkillIds(
+  skills: Array<Pick<SkillRow, "id" | "is_hidden" | "prereq_skill_ids">>,
+  openIds: Set<string> = new Set(),
+): Set<string> {
+  const hidden = new Set<string>();
+  for (const skill of skills) {
+    if (skill.is_hidden && !openIds.has(skill.id)) hidden.add(skill.id);
+  }
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const skill of skills) {
+      if (hidden.has(skill.id)) continue;
+      if (skill.prereq_skill_ids.some((id) => hidden.has(id))) {
+        hidden.add(skill.id);
+        grew = true;
+      }
+    }
+  }
+  return hidden;
+}

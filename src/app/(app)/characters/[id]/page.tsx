@@ -24,25 +24,33 @@ export default async function CharacterPage({
     (character.kind === "pc" && character.owner_id === session.user.id);
   if (!canEdit) notFound();
 
-  const [clsRes, skillsRes, learnedRes, inventoryRes, profilesRes, othersRes] =
-    await Promise.all([
-      character.class_id
-        ? supabase.from("classes").select("*").eq("id", character.class_id).maybeSingle()
-        : Promise.resolve({ data: null }),
-      supabase.from("skills").select("*").eq("is_draft", false).order("name"),
-      supabase.from("character_skills").select("skill_id").eq("character_id", id),
-      supabase.rpc("list_inventory", { p_character: id }),
-      supabase.from("profiles").select("id, display_name"),
-      session.isDm
-        ? supabase.from("characters").select("id, name").neq("id", id).order("name")
-        : supabase
-            .from("characters")
-            .select("id, name")
-            .eq("kind", "pc")
-            .eq("owner_id", session.user.id)
-            .neq("id", id)
-            .order("name"),
-    ]);
+  const [
+    clsRes,
+    skillsRes,
+    learnedRes,
+    revealsRes,
+    inventoryRes,
+    profilesRes,
+    othersRes,
+  ] = await Promise.all([
+    character.class_id
+      ? supabase.from("classes").select("*").eq("id", character.class_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("skills").select("*").eq("is_draft", false).order("name"),
+    supabase.from("character_skills").select("skill_id").eq("character_id", id),
+    supabase.from("skill_reveals").select("skill_id").eq("character_id", id),
+    supabase.rpc("list_inventory", { p_character: id }),
+    supabase.from("profiles").select("id, display_name"),
+    session.isDm
+      ? supabase.from("characters").select("id, name").neq("id", id).order("name")
+      : supabase
+          .from("characters")
+          .select("id, name")
+          .eq("kind", "pc")
+          .eq("owner_id", session.user.id)
+          .neq("id", id)
+          .order("name"),
+  ]);
 
   if (inventoryRes.error) {
     throw new Error(inventoryRes.error.message);
@@ -55,6 +63,7 @@ export default async function CharacterPage({
         cls={clsRes.data}
         skills={skillsRes.data ?? []}
         learned={learnedRes.data ?? []}
+        revealed={revealsRes.data ?? []}
         inventory={inventoryRes.data ?? []}
         profiles={profilesRes.data ?? []}
         transferTargets={othersRes.data ?? []}

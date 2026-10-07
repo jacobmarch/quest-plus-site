@@ -8,7 +8,9 @@ import {
   deleteCharacter,
   levelUpCharacter,
   lockSkill,
+  revealSkill,
   unlockSkill,
+  unrevealSkill,
   updateCharacterFields,
 } from "@/app/actions";
 import type {
@@ -18,7 +20,7 @@ import type {
   ProfileRow,
   SkillRow,
 } from "@/lib/database.types";
-import { computeSkillPoints } from "@/lib/skills";
+import { collectHiddenSkillIds, computeSkillPoints } from "@/lib/skills";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +53,7 @@ export function CharacterSheet({
   cls,
   skills,
   learned,
+  revealed,
   inventory,
   profiles,
   transferTargets,
@@ -61,6 +64,7 @@ export function CharacterSheet({
   cls: ClassRow | null;
   skills: SkillRow[];
   learned: LearnedRow[];
+  revealed: LearnedRow[];
   inventory: Array<
     Pick<
       InventoryRow,
@@ -82,6 +86,13 @@ export function CharacterSheet({
   const [pending, startTransition] = useTransition();
   const tabParam = searchParams.get("tab");
   const tab: SheetTab = isSheetTab(tabParam) ? tabParam : "overview";
+
+  const classSkills = skills.filter((s) => s.class_id === character.class_id);
+  const revealedIds = new Set(revealed.map((r) => r.skill_id));
+  const hiddenIds = collectHiddenSkillIds(
+    classSkills,
+    new Set([...revealedIds, ...learned.map((l) => l.skill_id)]),
+  );
 
   const points = computeSkillPoints(
     cls,
@@ -422,8 +433,15 @@ export function CharacterSheet({
         <TabsContent value="skills" className="pt-4">
           <SkillTreePanel
             classId={character.class_id}
-            skills={skills.filter((s) => s.class_id === character.class_id)}
+            skills={
+              isDm
+                ? classSkills
+                : classSkills.filter((s) => !hiddenIds.has(s.id))
+            }
             learned={learned}
+            hiddenIds={isDm ? hiddenIds : undefined}
+            revealedIds={isDm ? revealedIds : undefined}
+            characterName={character.name}
             points={points}
             pending={pending}
             onUnlock={(skillId) =>
@@ -431,6 +449,12 @@ export function CharacterSheet({
             }
             onLock={(skillId) =>
               run(() => lockSkill(character.id, skillId))
+            }
+            onReveal={(skillId) =>
+              run(() => revealSkill(character.id, skillId))
+            }
+            onUnreveal={(skillId) =>
+              run(() => unrevealSkill(character.id, skillId))
             }
           />
         </TabsContent>
