@@ -15,7 +15,7 @@ Signed-in users are redirected away from these by `proxy.ts`.
 
 | Path | File | Notes |
 | --- | --- | --- |
-| `/` | `(app)/page.tsx` | Dashboard: Player sees own PCs; DM sees party + enemy counts and recents |
+| `/` | `(app)/page.tsx` | Dashboard: party cards (own PCs for a Player, all PCs for the DM), recent Rolls; DM also gets an enemy HP tracker |
 | `/rolls` | `(app)/rolls/page.tsx` | Roll log (RLS-filtered), newest first |
 | `/sessions` | `(app)/sessions/page.tsx` | Recap list; DM gets create dialog |
 | `/sessions/[id]` | `(app)/sessions/[id]/page.tsx` | Recap body; DM can edit/delete |
