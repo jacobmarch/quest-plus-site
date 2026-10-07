@@ -9,7 +9,6 @@ Table `session_notes`: `title`, `occurred_on` (date), `content_md`, timestamps.
 - List: `/sessions` — all authenticated members can read (RLS). DM sees a create dialog.
 - Detail: `/sessions/[id]` — lightweight markdown render (headings, lists, `**bold**`), not a full MD engine.
 - Writes: `upsertSessionNote` / `deleteSessionNote` (DM). UI: [`session-note-dialog.tsx`](../src/components/session-note-dialog.tsx).
-- Dashboard shows the three most recent notes.
 
 `updated_at` is maintained by `private.touch_updated_at`.
 

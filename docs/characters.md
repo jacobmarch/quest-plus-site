@@ -16,7 +16,7 @@ A **character** is a row in `characters`. `kind` is `pc` or `enemy`. PCs require
 | Party | DM | `(app)/party/page.tsx` — PCs, owners, `list_visible_inventory` |
 | Bestiary | DM | `(app)/bestiary/page.tsx` — enemies |
 | Sheet | Editor | `(app)/characters/[id]/page.tsx` + `CharacterSheet` |
-| Dashboard | Both | Own PCs (Player) or PC/enemy summaries (DM) |
+| Dashboard | Both | Party cards (HP, class, owner, coins, unspent skill points, carried items, notes) — own PCs for a Player, every PC for the DM — with quick damage/heal, plus the five most recent visible Rolls; the DM also gets each owner's last Roll, quick links, and a living-enemy HP tracker |
 
 The sheet 404s unless the viewer is the DM or the PC’s owner.
 
