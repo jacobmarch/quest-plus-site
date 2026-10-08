@@ -131,4 +131,12 @@
   html {
     @apply font-sans;
   }
+  /* Native dropdown lists don't reliably follow color-scheme: Chrome and
+     Firefox on Windows paint them white while the options inherit the
+     light dark-mode text color. Give options explicit theme colors. */
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
 }
