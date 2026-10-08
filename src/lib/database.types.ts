@@ -276,6 +276,7 @@ export type Database = {
           description: string;
           effects: Json;
           id: string;
+          is_unique: boolean;
           name: string;
         };
         Insert: {
@@ -284,6 +285,7 @@ export type Database = {
           description?: string;
           effects?: Json;
           id?: string;
+          is_unique?: boolean;
           name: string;
         };
         Update: {
@@ -292,6 +294,7 @@ export type Database = {
           description?: string;
           effects?: Json;
           id?: string;
+          is_unique?: boolean;
           name?: string;
         };
         Relationships: [];
