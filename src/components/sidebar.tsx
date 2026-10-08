@@ -17,6 +17,7 @@ import {
 import { signOut } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { RollTrigger } from "@/components/roll-trigger";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -62,6 +63,7 @@ export function Sidebar({
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <BookOpen className="size-5" />
         <span className="text-lg font-bold tracking-tight">Quest Plus</span>
+        <ThemeToggle className="ml-auto text-muted-foreground" />
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => {
