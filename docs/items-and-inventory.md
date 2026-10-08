@@ -2,7 +2,7 @@
 
 Two layers:
 
-1. **Catalog** (`items`) — DM-defined templates (name, description, damage string, effects). Players cannot `SELECT` the catalog (DM-only policy).
+1. **Catalog** (`items`) — DM-defined templates (name, description, damage string, effects, `is_unique`). Players cannot `SELECT` the catalog (DM-only policy).
 2. **Inventory** (`inventory`) — per-character copies: `item_name`, `quantity`, `damage`, `effects` jsonb, optional `item_id`. Names are free-form; catalog grant copies fields onto a row.
 
 ## Catalog
@@ -12,6 +12,10 @@ Two layers:
 - Damage ≤ 80 characters
 - At most 20 effects; name/description/impact length caps
 - Each effect: `name`, `description`, `impact`, `hidden` (catalog); inventory copies add `revealed`
+
+The page is a searchable card grid. Each card shows who holds the item, found by matching inventory `item_name` to the catalog name case-insensitively (`holdersByItemName`); renaming a catalog item does not rename copies already handed out. Clicking a card opens a detail dialog to edit the item, give it to a character, or take it back.
+
+**Unique items** (`is_unique`, e.g. "Gorvak's Axe") live with one character at a time. `assignItem` uses `planAssignment`: a unique item already held moves with `transfer_inventory` (keeping what was revealed on that copy); otherwise it is granted with `adjust_inventory`. New items default to unique. This is enforced in the app, not the database.
 
 ## Inventory rows
 

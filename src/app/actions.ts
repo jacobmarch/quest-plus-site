@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireDm, requireSession } from "@/lib/auth";
-import { sanitizeDamage, sanitizeEffects } from "@/lib/items";
+import type { InventoryRow } from "@/lib/database.types";
+import {
+  catalogKey,
+  planAssignment,
+  sanitizeDamage,
+  sanitizeEffects,
+} from "@/lib/items";
 import { MAP_BUCKET, validateMapName, validMapStoragePath } from "@/lib/maps";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -496,15 +502,20 @@ export async function upsertItem(input: {
   name: string;
   description: string;
   damage: string;
+  isUnique: boolean;
   effects: Array<{
     name: string;
     description?: string;
     impact?: string;
     hidden?: boolean;
   }>;
-}): Promise<ActionResult> {
+}): Promise<ActionResult & { id?: string }> {
   try {
     await requireDm();
+    const name = input.name.trim();
+    if (!name || name.length > 200) {
+      throw new Error("Item name must be between 1 and 200 characters");
+    }
     const damage = sanitizeDamage(input.damage);
     const effects = sanitizeEffects(input.effects).map(
       ({ name, description, impact, hidden }) => ({
@@ -516,18 +527,19 @@ export async function upsertItem(input: {
     );
     const supabase = await createClient();
     const row = {
-      name: input.name,
-      description: input.description,
+      name,
+      description: input.description.trim(),
       damage,
       effects,
+      is_unique: input.isUnique,
     };
     const query = input.id
       ? supabase.from("items").update(row).eq("id", input.id)
       : supabase.from("items").insert(row);
-    const { error } = await query;
+    const { data, error } = await query.select("id").single();
     if (error) throw new Error(error.message);
     revalidatePath("/items");
-    return { ok: true };
+    return { ok: true, id: data.id };
   } catch (err) {
     return toError(err);
   }
@@ -540,6 +552,61 @@ export async function deleteItem(id: string): Promise<ActionResult> {
     const { error } = await supabase.from("items").delete().eq("id", id);
     if (error) throw new Error(error.message);
     revalidatePath("/items");
+    return { ok: true };
+  } catch (err) {
+    return toError(err);
+  }
+}
+
+/** Give a catalog item to a character. A unique item moves from whoever holds it. */
+export async function assignItem(input: {
+  itemId: string;
+  characterId: string;
+  quantity: number;
+}): Promise<ActionResult> {
+  try {
+    await requireDm();
+    const supabase = await createClient();
+    const [itemRes, inventoryRes] = await Promise.all([
+      supabase.from("items").select("name, is_unique").eq("id", input.itemId).single(),
+      supabase.rpc("list_visible_inventory"),
+    ]);
+    if (itemRes.error) throw new Error(itemRes.error.message);
+    if (inventoryRes.error) throw new Error(inventoryRes.error.message);
+    const item = itemRes.data;
+    const copies: InventoryRow[] = inventoryRes.data ?? [];
+    const holders = copies
+      .filter((row) => catalogKey(row.item_name) === catalogKey(item.name))
+      .map((row) => ({
+        characterId: row.character_id,
+        characterName: "That character",
+        quantity: row.quantity,
+      }));
+    const plan = planAssignment({
+      isUnique: item.is_unique,
+      holders,
+      targetCharacterId: input.characterId,
+      quantity: input.quantity,
+    });
+    const { error } =
+      plan.kind === "transfer"
+        ? await supabase.rpc("transfer_inventory", {
+            p_from_character: plan.fromCharacterId,
+            p_to_character: input.characterId,
+            p_item_name: item.name,
+            p_quantity: plan.quantity,
+          })
+        : await supabase.rpc("adjust_inventory", {
+            p_character: input.characterId,
+            p_item_name: item.name,
+            p_delta: plan.quantity,
+          });
+    if (error) throw new Error(error.message);
+    revalidatePath("/items");
+    revalidatePath(`/characters/${input.characterId}`);
+    if (plan.kind === "transfer") {
+      revalidatePath(`/characters/${plan.fromCharacterId}`);
+    }
     return { ok: true };
   } catch (err) {
     return toError(err);
